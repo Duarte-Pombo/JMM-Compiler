@@ -6,6 +6,7 @@ grammar Javamm;
 
 CLASS : 'class' ;
 INT : 'int' ;
+VOID : 'void' ;
 STATIC : 'static' ;
 RETURN : 'return' ;
 PACKAGE: 'package';
@@ -21,12 +22,12 @@ SINGLE_COMMENT: '//' ~[\r\n]*-> skip;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip;
 
 program
-    : importDecl? packageDecl classNode=classDecl EOF
+    : packageDecl importDecl? classNode=classDecl EOF
     ;
 
-importDecl:
-    IMPORT ID ';'
-;
+importDecl
+    : IMPORT path += ID ('.' path += ID)* ';'
+    ;
 
 //package is mandatory
 packageDecl
@@ -49,17 +50,19 @@ param
 ;
 
 type
-    : name = INT;
+    : name = INT
+    | name = VOID;
 
 methodDecl locals[boolean isStatic=false]
-    : visibility=PUBLIC (STATIC {$isStatic=true;})?
+    : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
-        '(' params = param  ')'
+        '(' (param)*  ')'
         '{' varDecl* stmt* '}'
     ;
 
 stmt
     : var = ID '=' expr ';' #AssignStmt //
+    | expr ';' #ExprStmt
     | RETURN expr ';' #ReturnStmt
     ;
 
@@ -68,6 +71,7 @@ expr
     | expr op= '+' expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //
     | name=ID #VarRefExpr //
+    | ID '.' ID '(' param* ')' #MethodCall //
     ;
 
 
