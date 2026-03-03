@@ -56,6 +56,7 @@ classDecl
 
 varDecl
     : typeNode = type name=ID ';'
+    | typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET ';'
     ;
 
 param
@@ -63,7 +64,11 @@ param
 ;
 
 type
-    : ( 'boolean' | 'int' | 'void' | ID ) ( OPEN_BRACKET CLOSE_BRACKET )?
+    : type OPEN_BRACKET CLOSE_BRACKET #Array
+    | val = BOOLEAN #Boolean
+    | val = INT     #Int
+    | val = VOID    #Void
+    | val = ID      #Id
     ;
 
 methodDecl locals[boolean isStatic=false]
@@ -74,16 +79,15 @@ methodDecl locals[boolean isStatic=false]
     ;
 
 stmt
-    : var = ID '=' expr ';' #AssignStmt //
-    | expr ';'              #ExprStmt  //
+    : expr ';'              #ExprStmt  //
+    | var = ID '=' expr ';' #AssignStmt //
     | RETURN expr ';'       #ReturnStmt
     ;
 
 expr
-<<<<<<< HEAD
-    : expr op= ('*'|'/') expr #BinaryExpr //
+    : expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    | expr op= ('*'|'/') expr #BinaryExpr //
     | expr op= ('+'|'-') expr #BinaryExpr //
-    | expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
     | value=INTEGER #IntegerLiteral //
     | name=ID #VarRefExpr
     ;
