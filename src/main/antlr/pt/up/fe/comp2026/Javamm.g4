@@ -14,7 +14,7 @@ IMPORT: 'import';
 PUBLIC: 'public';
 
 INTEGER : '0' | [1-9][0-9]* ;
-ID : [a-zA-Z]+ ;
+ID : [a-zA-Z_$]([a-zA-Z_0-9$])* ;
 
 WS : [ \t\n\r\f]+ -> skip ;
 
@@ -56,22 +56,22 @@ type
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
-        '(' (param)*  ')'
+        '(' (param (',' param)*)?  ')'
         '{' varDecl* stmt* '}'
     ;
 
 stmt
     : var = ID '=' expr ';' #AssignStmt //
-    | expr ';' #ExprStmt
-    | RETURN expr ';' #ReturnStmt
+    | expr ';'              #ExprStmt  //
+    | RETURN expr ';'       #ReturnStmt
     ;
 
 expr
-    : expr op= '*' expr #BinaryExpr //
+    : expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    | expr op= '*' expr #BinaryExpr //
     | expr op= '+' expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //
-    | name=ID #VarRefExpr //
-    | ID '.' ID '(' param* ')' #MethodCall //
+    | name=ID #VarRefExpr
     ;
 
 
