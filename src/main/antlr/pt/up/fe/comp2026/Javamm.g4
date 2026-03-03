@@ -50,7 +50,8 @@ packageDecl
 classDecl
     : CLASS name=ID ('extends' parent=ID)?
         '{'
-        methodDecl
+        varDecl*
+        methodDecl*
         '}'
     ;
 
@@ -80,7 +81,6 @@ stmt
     ;
 
 expr
-<<<<<<< HEAD
     : expr op= ('*'|'/') expr #BinaryExpr //
     | expr op= ('+'|'-') expr #BinaryExpr //
     | expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
