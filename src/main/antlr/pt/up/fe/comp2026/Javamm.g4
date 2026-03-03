@@ -10,6 +10,7 @@ CLASS : 'class' ;
 INT : 'int' ;
 BOOLEAN : 'boolean' ;
 VOID : 'void' ;
+
 OPEN_BRACKET  : '[' ; // for the array
 CLOSE_BRACKET : ']' ; // for the array
 TRUE : 'true' ; // boolean values
@@ -39,7 +40,7 @@ program
     ;
 
 importDecl
-    : IMPORT path += ID ('.' path += ID)* ';'
+    : IMPORT path += ID ('.' path += ID)* ';' #ImportDeclaration
     ;
 
 //package is mandatory
