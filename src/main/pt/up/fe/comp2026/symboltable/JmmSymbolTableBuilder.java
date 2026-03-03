@@ -75,11 +75,26 @@ public class JmmSymbolTableBuilder {
         declaredClasses.put(className, fullyQualifiedName);
 
 
+        var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, null, Collections.emptyList(), methods, importer);
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, null, fields, methods, importer);
 
         return new SymbolTableBuilderResult(symbolTable, reports);
+    }
+
+    private List<Symbol> buildFields(JmmNode classDecl) {
+        return classDecl.getChildren(VAR_DECL).stream()
+                .map(this::buildField)
+                .toList();
+    }
+
+    private Symbol buildField(JmmNode varDecl) {
+        var fieldName = varDecl.get(JmmAttributes.VAR_DECL.NAME);
+
+        System.out.println("[TODO] JmmSymbolTableBuilder.buildField(): Assuming return type of method is always int, and always has a single int parameter, needs to be expanded");
+        var type = TypeUtils.intType();
+        return new Symbol(type, fieldName);
     }
 
     private List<MethodSymbol> buildMethods(JmmNode classDecl) {
