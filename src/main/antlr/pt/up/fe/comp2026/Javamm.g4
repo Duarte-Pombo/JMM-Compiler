@@ -75,16 +75,17 @@ methodDecl locals[boolean isStatic=false]
 
 stmt
     : var = ID '=' expr ';' #AssignStmt //
-    | expr ';' #ExprStmt
-    | RETURN expr ';' #ReturnStmt
+    | expr ';'              #ExprStmt  //
+    | RETURN expr ';'       #ReturnStmt
     ;
 
 expr
+<<<<<<< HEAD
     : expr op= ('*'|'/') expr #BinaryExpr //
     | expr op= ('+'|'-') expr #BinaryExpr //
+    | expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
     | value=INTEGER #IntegerLiteral //
-    | name=ID #VarRefExpr //
-    | ID '.' ID '(' param* ')' #MethodCall //
+    | name=ID #VarRefExpr
     ;
 
 
