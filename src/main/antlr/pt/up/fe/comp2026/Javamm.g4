@@ -10,6 +10,7 @@ CLASS : 'class' ;
 INT : 'int' ;
 BOOLEAN : 'boolean' ;
 VOID : 'void' ;
+
 OPEN_BRACKET  : '[' ; // for the array
 CLOSE_BRACKET : ']' ; // for the array
 TRUE : 'true' ; // boolean values
@@ -39,7 +40,7 @@ program
     ;
 
 importDecl
-    : IMPORT path += ID ('.' path += ID)* ';'
+    : IMPORT path += ID ('.' path += ID)* ';' #ImportDeclaration
     ;
 
 //package is mandatory
@@ -50,21 +51,26 @@ packageDecl
 classDecl
     : CLASS name=ID ('extends' parent=ID)?
         '{'
-        varDecl*
-        methodDecl*
-        '}'
+        (varDecl)*
+        (methodDecl)*
+        '}' #ClassDeclaration
     ;
 
 varDecl
     : typeNode = type name=ID ';'
+    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET ';'
     ;
 
 param
     : typeNode = type name=ID
-;
+    ;
 
 type
-    : ( 'boolean' | 'int' | 'void' | ID ) ( OPEN_BRACKET CLOSE_BRACKET )?
+    : type OPEN_BRACKET CLOSE_BRACKET #Array
+    | val = BOOLEAN #Boolean
+    | val = INT     #Int
+    | val = VOID    #Void
+    | val = ID      #Id
     ;
 
 methodDecl locals[boolean isStatic=false]
@@ -75,15 +81,15 @@ methodDecl locals[boolean isStatic=false]
     ;
 
 stmt
-    : var = ID '=' expr ';' #AssignStmt //
-    | expr ';'              #ExprStmt  //
+    : expr ';'              #ExprStmt  //
+    | var = ID '=' expr ';' #AssignStmt //
     | RETURN expr ';'       #ReturnStmt
     ;
 
 expr
     : expr op= ('*'|'/') expr #BinaryExpr //
-    | expr op= ('+'|'-') expr #BinaryExpr //
     | expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    | expr op= ('+'|'-') expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //
     | name=ID #VarRefExpr
     ;
