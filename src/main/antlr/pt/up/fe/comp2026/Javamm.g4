@@ -51,8 +51,7 @@ packageDecl
 classDecl
     : CLASS name=ID ('extends' parent=ID)?
         '{'
-        (varDecl)*
-        (methodDecl)*
+        (varDecl | methodDecl)*
         '}' #ClassDeclaration
     ;
 
