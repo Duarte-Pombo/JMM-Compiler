@@ -5,16 +5,29 @@ grammar Javamm;
 }
 
 CLASS : 'class' ;
+
+//Types
 INT : 'int' ;
+BOOLEAN : 'boolean' ;
 VOID : 'void' ;
+OPEN_BRACKET  : '[' ; // for the array
+CLOSE_BRACKET : ']' ; // for the array
+TRUE : 'true' ; // boolean values
+FALSE : 'false' ; // boolean values
+
 STATIC : 'static' ;
 RETURN : 'return' ;
-PACKAGE: 'package';
-IMPORT: 'import';
-PUBLIC: 'public';
+PACKAGE : 'package' ;
+PUBLIC : 'public' ;
+IMPORT : 'import' ;
+
+IF : 'if' ;
+ELSE : 'else' ;
+FOR : 'for' ;
+WHILE : 'while' ;
 
 INTEGER : '0' | [1-9][0-9]* ;
-ID : [a-zA-Z]+ ;
+ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
 
 WS : [ \t\n\r\f]+ -> skip ;
 
@@ -22,7 +35,7 @@ SINGLE_COMMENT: '//' ~[\r\n]*-> skip;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip;
 
 program
-    : packageDecl importDecl? classNode=classDecl EOF
+    : packageDecl importDecl* classNode=classDecl EOF
     ;
 
 importDecl
@@ -35,7 +48,7 @@ packageDecl
     ;
 
 classDecl
-    : CLASS name=ID
+    : CLASS name=ID ('extends' parent=ID)?
         '{'
         methodDecl
         '}'
@@ -50,13 +63,13 @@ param
 ;
 
 type
-    : name = INT
-    | name = VOID;
+    : ( 'boolean' | 'int' | 'void' | ID ) ( OPEN_BRACKET CLOSE_BRACKET )?
+    ;
 
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
-        '(' (param)*  ')'
+        '(' (param (',' param)*)?  ')'
         '{' varDecl* stmt* '}'
     ;
 
@@ -67,8 +80,8 @@ stmt
     ;
 
 expr
-    : expr op= '*' expr #BinaryExpr //
-    | expr op= '+' expr #BinaryExpr //
+    : expr op= ('*'|'/') expr #BinaryExpr //
+    | expr op= ('+'|'-') expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //
     | name=ID #VarRefExpr //
     | ID '.' ID '(' param* ')' #MethodCall //
