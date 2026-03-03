@@ -50,13 +50,14 @@ packageDecl
 classDecl
     : CLASS name=ID ('extends' parent=ID)?
         '{'
-        methodDecl
-        '}'
+        (varDecl)*
+        (methodDecl)*
+        '}' #ClassDeclaration
     ;
 
 varDecl
     : typeNode = type name=ID ';'
-    | typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET ';'
+    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET ';'
     ;
 
 param
