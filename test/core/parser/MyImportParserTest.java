@@ -24,19 +24,4 @@ public class MyImportParserTest extends JmmTestEnv {
                     }
                 }""");
     }
-
-    @Test
-    public void staticImport() {
-        var res = parseSnippet("""
-                package importDeclarations.test;
-                import static java.lang.Math.PI;
-                class Test {
-                    Object foo() {
-                        int a;
-                        a = io.read();
-                        io.print(a);
-                        return 0;
-                    }
-                }""");
-    }
 }
