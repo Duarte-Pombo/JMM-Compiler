@@ -18,11 +18,12 @@ public class MyParserTest extends JmmTestEnv {
 
     @Test
     public void testHelloWorld() {
-        var res = parseSnippet("""  
+        var res = parseSnippet("""
                 package hello.world;
                 import util.ioPlus;
                 class HelloWorld {
                     void main() {
+                        int[] a;
                         ioPlus.printHelloWorld();
                     }
                 }""");

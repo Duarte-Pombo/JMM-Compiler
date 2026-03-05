@@ -80,14 +80,16 @@ methodDecl locals[boolean isStatic=false]
     ;
 
 stmt
-    : expr ';'              #ExprStmt  //
+    : '{' (stmt)* '}' #CompoundStmt
+    | IF '(' expr ')' stmt (ELSE stmt)? #IfElse
+    | expr ';'              #ExprStmt  //
     | var = ID '=' expr ';' #AssignStmt //
     | RETURN expr ';'       #ReturnStmt
     ;
 
 expr
-    : expr op= ('*'|'/') expr #BinaryExpr //
-    | expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    : expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    | expr op= ('*'|'/') expr #BinaryExpr //
     | expr op= ('+'|'-') expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //
     | name=ID #VarRefExpr
