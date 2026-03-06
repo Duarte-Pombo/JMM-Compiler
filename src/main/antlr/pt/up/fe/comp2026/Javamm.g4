@@ -82,6 +82,7 @@ methodDecl locals[boolean isStatic=false]
 stmt
     : '{' (stmt)* '}' #CompoundStmt
     | IF '(' expr ')' stmt (ELSE stmt)? #IfElse
+    | WHILE '(' expr ')' stmt #WhileStmt
     | expr ';'              #ExprStmt  //
     | var = ID '=' expr ';' #AssignStmt //
     | RETURN expr ';'       #ReturnStmt
