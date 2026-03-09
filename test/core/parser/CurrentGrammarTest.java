@@ -431,4 +431,126 @@ public class CurrentGrammarTest extends JmmTestEnv {
         """;
         parseSnippet(code);
     }
+
+    @Test
+    public void testLengthUsage() {
+        var code = """
+        package test;
+        class LengthTest {
+            void testLength() {
+                int[] a;
+                int x;
+                a = new int[3];
+                x = a.length;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testArrayAccessUsage() {
+        var code = """
+        package test;
+        class ArrayAccessUsageTest {
+            void testAccess() {
+                int[] a;
+                int x;
+                a = new int[4];
+                x = a[0];
+                x = a[1] + a[2];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testNegationUsage() {
+        var code = """
+        package test;
+        class NegationTest {
+            void testNeg() {
+                boolean b;
+                b = !false;
+                b = !b;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testNewArrayUsage() {
+        var code = """
+        package test;
+        class NewArrayUsageTest {
+            void testNewArray() {
+                int[] a;
+                a = new int[10];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testBinaryAndOrUsage() {
+        var code = """
+        package test;
+        class LogicOpsTest {
+            void testLogic() {
+                boolean b;
+                b = true && false;
+                b = b || true;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testArrayLiteralUsage() {
+        var code = """
+        package test;
+        class ArrayLiteralTest {
+            void testArrayLiteral() {
+                int[] a;
+                a = [1, 2, 3];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testBooleanLiteralsUsage() {
+        var code = """
+        package test;
+        class BooleanLiteralsTest {
+            void testBooleans() {
+                boolean b;
+                b = true;
+                b = false;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testThisUsage() {
+        var code = """
+        package test;
+        class ThisTest {
+            ThisTest self;
+            void foo() {}
+            void testThis() {
+                self = this;
+                this.foo();
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
 }

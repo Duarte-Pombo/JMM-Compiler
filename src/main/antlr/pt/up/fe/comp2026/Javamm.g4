@@ -79,7 +79,6 @@ classDecl
 
 varDecl
     : typeNode = type name=ID SEMI
-    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET SEMI
     ;
 
 param
