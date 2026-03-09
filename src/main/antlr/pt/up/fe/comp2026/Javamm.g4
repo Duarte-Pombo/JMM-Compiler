@@ -75,9 +75,13 @@ type
 
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
+        VOID name=ID
+        '(' (param (',' param)*)? ')'
+        '{' varDecl* stmt* '}'
+    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
         '(' (param (',' param)*)?  ')'
-        '{' varDecl* stmt* '}'
+        '{' varDecl* stmt+ '}'
     ;
 
 stmt
