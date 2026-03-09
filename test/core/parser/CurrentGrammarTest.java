@@ -40,7 +40,6 @@ public class CurrentGrammarTest extends JmmTestEnv {
                 void c;
                 MyObject obj;
                 int[] arr;
-                boolean[][] multiArr;
             }""";
         parseSnippet(code);
     }
@@ -53,7 +52,7 @@ public class CurrentGrammarTest extends JmmTestEnv {
                 void emptyMethod() {}
                 public int publicMethod(int a) { return a; }
                 static boolean staticMethod(int a, boolean b, MyObj c) { return b; }
-                public static int[] mainMethod(String[] args) { return args; }
+                public static void main(String[] args) { return args; }
             }""";
         parseSnippet(code);
     }
@@ -345,6 +344,213 @@ public class CurrentGrammarTest extends JmmTestEnv {
                     public static void main(String[] args) {}
                 }
             """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void newArrays() {
+        var code = """
+        package test;
+        class ArrayTest {
+            void testArray() {
+                int[] a;
+                a = new int[10];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void storeArray() {
+        var code = """
+        package test;
+        class ArrayStoreTest {
+            void testArray() {
+                int[] a;
+                a = new int[5];
+                a[0] = 42;
+                a[1] = 1 + 2;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void loadArray() {
+        var code = """
+        package test;
+        class ArrayLoadTest {
+            void testArray() {
+                int[] a;
+                int x;
+                a = new int[5];
+                a[0] = 10;
+                x = a[0];
+                x = a[1] + 2;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void nestedArray() {
+        var code = """
+        package test;
+        class NestedArrayTest {
+            void testArray() {
+                int[] a;
+                int[] b;
+                int x;
+                a = new int[5];
+                b = new int[5];
+                a[0] = 1;
+                b[0] = a[0] + 2;
+                x = b[a[0]];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+    @Test
+    public void arrayMethodCall() {
+        var code = """
+        package test;
+        class ArrayMethodTest {
+            void testArray() {
+                int[] a;
+                a = new int[3];
+                ArrayMethodTest.print(a[0]);
+                ArrayMethodTest.foo(a[1]);
+            }
+            void print(int x) {}
+            void foo(int y) {}
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testLengthUsage() {
+        var code = """
+        package test;
+        class LengthTest {
+            void testLength() {
+                int[] a;
+                int x;
+                a = new int[3];
+                x = a.length;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testArrayAccessUsage() {
+        var code = """
+        package test;
+        class ArrayAccessUsageTest {
+            void testAccess() {
+                int[] a;
+                int x;
+                a = new int[4];
+                x = a[0];
+                x = a[1] + a[2];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testNegationUsage() {
+        var code = """
+        package test;
+        class NegationTest {
+            void testNeg() {
+                boolean b;
+                b = !false;
+                b = !b;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testNewArrayUsage() {
+        var code = """
+        package test;
+        class NewArrayUsageTest {
+            void testNewArray() {
+                int[] a;
+                a = new int[10];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testBinaryAndOrUsage() {
+        var code = """
+        package test;
+        class LogicOpsTest {
+            void testLogic() {
+                boolean b;
+                b = true && false;
+                b = b || true;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testArrayLiteralUsage() {
+        var code = """
+        package test;
+        class ArrayLiteralTest {
+            void testArrayLiteral() {
+                int[] a;
+                a = [1, 2, 3];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testBooleanLiteralsUsage() {
+        var code = """
+        package test;
+        class BooleanLiteralsTest {
+            void testBooleans() {
+                boolean b;
+                b = true;
+                b = false;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testThisUsage() {
+        var code = """
+        package test;
+        class ThisTest {
+            ThisTest self;
+            void foo() {}
+            void testThis() {
+                self = this;
+                this.foo();
+            }
+        }
+        """;
         parseSnippet(code);
     }
 }

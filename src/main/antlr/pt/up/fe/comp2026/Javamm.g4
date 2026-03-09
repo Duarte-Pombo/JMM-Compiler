@@ -17,6 +17,8 @@ OPEN_BRACES : '{' ;
 CLOSE_BRACES : '}' ;
 OPEN_PARENTHESES : '(' ;
 CLOSE_PARENTHESES : ')' ;
+AND : '&&';
+OR : '||';
 LESS_EQUAL: '<=' ;
 GREATER_EQUAL: '>=' ;
 EQEQ: '==';
@@ -24,6 +26,7 @@ NOT_EQUAL: '!=';
 LESS_THAN: '<' ;
 GREATER_THAN: '>' ;
 EQUALS : '=';
+NOT: '!';
 
 CLASS : 'class' ;
 
@@ -42,6 +45,7 @@ ELSE : 'else' ;
 FOR : 'for' ;
 WHILE : 'while' ;
 NEW: 'new' ;
+THIS: 'this';
 
 TRUE : 'true' ;
 FALSE : 'false' ;
@@ -75,7 +79,6 @@ classDecl
 
 varDecl
     : typeNode = type name=ID SEMI
-    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET SEMI
     ;
 
 param
@@ -83,7 +86,7 @@ param
     ;
 
 type
-    : type OPEN_BRACKET CLOSE_BRACKET #Array
+    : val = INT OPEN_BRACKET CLOSE_BRACKET #IntegerArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
@@ -92,8 +95,11 @@ type
 
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
-        returnType = type name=ID
+        type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
+        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
+    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})
+        VOID name=ID OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
         OPEN_BRACES varDecl* stmt* CLOSE_BRACES
     ;
 
@@ -101,19 +107,28 @@ stmt
     : OPEN_BRACES (stmt)* CLOSE_BRACES #CompoundStmt
     | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElse
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
-    | expr SEMI              #ExprStmt
-    | var = ID EQUALS expr SEMI #AssignStmt
-    | RETURN expr? SEMI       #ReturnStmt
+    | expr SEMI                 #ExprStmt
+    | var = expr EQUALS expr SEMI     #AssignStmt
+    | RETURN expr? SEMI         #ReturnStmt
     ;
 
 expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
+    | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
+    | expr DOT name=ID #Length
+    | NOT expr #NegationExpr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES  #NewObject
+    | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
-    | expr op=(LESS_THAN | GREATER_THAN) expr #BinaryOp
-    | expr op=(LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
+    | expr op= (LESS_THAN | GREATER_THAN) expr #BinaryOp
+    | expr op= (LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
+    | expr op= (AND | OR) expr #BinaryOp
+    | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
+    | value=TRUE #BooleanLiteral
+    | value=FALSE #BooleanLiteral
     | name=ID #VarRefExpr
+    | name=THIS #This
     ;
