@@ -67,7 +67,7 @@ importDecl
 
 //package is mandatory
 packageDecl
-    : PACKAGE path += ID (DOT path +=ID)* SEMI
+    : PACKAGE path += ID (DOT path +=ID)* SEMI #PackageDeclaration
     ;
 
 classDecl
@@ -105,11 +105,12 @@ methodDecl locals[boolean isStatic=false]
 
 stmt
     : OPEN_BRACES (stmt)* CLOSE_BRACES #CompoundStmt
-    | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElse
+    | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElseStmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
-    | expr SEMI                 #ExprStmt
-    | var = expr EQUALS expr SEMI     #AssignStmt
-    | RETURN expr? SEMI         #ReturnStmt
+    | expr SEMI #ExprStmt
+    | var = expr EQUALS expr SEMI #AssignStmt
+    | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
+    | RETURN expr? SEMI #ReturnStmt
     ;
 
 expr
@@ -117,8 +118,8 @@ expr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
     | expr DOT name=ID #Length
-    | NOT expr #NegationExpr
-    | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES  #NewObject
+    | op= NOT expr #NegationExpr
+    | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
