@@ -26,6 +26,7 @@ IF : 'if' ;
 ELSE : 'else' ;
 FOR : 'for' ;
 WHILE : 'while' ;
+NEW: 'new' ;
 
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
@@ -89,7 +90,9 @@ stmt
     ;
 
 expr
-    : expr '.' ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    : '(' expr ')' #ParenthesesExpr
+    | expr '.' name=ID '(' (expr (',' expr)*)? ')' #MethodCall //
+    | NEW name=ID '(' ')'  #NewObject
     | expr op= ('*'|'/') expr #BinaryExpr //
     | expr op= ('+'|'-') expr #BinaryExpr //
     | value=INTEGER #IntegerLiteral //

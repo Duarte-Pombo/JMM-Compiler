@@ -256,4 +256,58 @@ public class CurrentGrammarTest extends JmmTestEnv {
         parseSnippetWithErrors(code);
     }
 
+    @Test
+    public void newObject() {
+        var code = """
+            package test;
+            class newObject {
+                void testNew() {
+                    A a;
+                    a = new A();
+                    a.b();
+                    a.b(c.d());
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void callNew() {
+        var code = """
+            package test;
+            class callNew {
+                void testNew() {
+                    new A().b().c();
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void callArgs() {
+        var code = """
+            package test;
+            class callArgs {
+                void testCall() {
+                    a.b(1, 2, 3);
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void callExpr() {
+        var code = """
+            package test;
+            class callExpr {
+                void testCall() {
+                    (1 + 2).a();
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
 }
