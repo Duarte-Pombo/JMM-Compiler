@@ -346,4 +346,89 @@ public class CurrentGrammarTest extends JmmTestEnv {
             """;
         parseSnippet(code);
     }
+
+    @Test
+    public void newArrays() {
+        var code = """
+        package test;
+        class ArrayTest {
+            void testArray() {
+                int[] a;
+                a = new int[10];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void storeArray() {
+        var code = """
+        package test;
+        class ArrayStoreTest {
+            void testArray() {
+                int[] a;
+                a = new int[5];
+                a[0] = 42;
+                a[1] = 1 + 2;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void loadArray() {
+        var code = """
+        package test;
+        class ArrayLoadTest {
+            void testArray() {
+                int[] a;
+                int x;
+                a = new int[5];
+                a[0] = 10;
+                x = a[0];
+                x = a[1] + 2;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void nestedArray() {
+        var code = """
+        package test;
+        class NestedArrayTest {
+            void testArray() {
+                int[] a;
+                int[] b;
+                int x;
+                a = new int[5];
+                b = new int[5];
+                a[0] = 1;
+                b[0] = a[0] + 2;
+                x = b[a[0]];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+    @Test
+    public void arrayMethodCall() {
+        var code = """
+        package test;
+        class ArrayMethodTest {
+            void testArray() {
+                int[] a;
+                a = new int[3];
+                ArrayMethodTest.print(a[0]);
+                ArrayMethodTest.foo(a[1]);
+            }
+            void print(int x) {}
+            void foo(int y) {}
+        }
+        """;
+        parseSnippet(code);
+    }
 }
