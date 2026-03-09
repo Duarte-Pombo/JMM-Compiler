@@ -86,7 +86,7 @@ stmt
     | WHILE '(' expr ')' stmt #WhileStmt
     | expr ';'              #ExprStmt  //
     | var = ID '=' expr ';' #AssignStmt //
-    | RETURN expr ';'       #ReturnStmt
+    | RETURN expr? ';'       #ReturnStmt
     ;
 
 expr
