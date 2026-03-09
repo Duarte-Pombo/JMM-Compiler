@@ -75,13 +75,9 @@ type
 
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
-        VOID name=ID
-        '(' (param (',' param)*)? ')'
-        '{' varDecl* stmt* '}'
-    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
         '(' (param (',' param)*)?  ')'
-        '{' varDecl* stmt+ '}'
+        '{' varDecl* stmt* '}'
     ;
 
 stmt
@@ -90,7 +86,7 @@ stmt
     | WHILE '(' expr ')' stmt #WhileStmt
     | expr ';'              #ExprStmt  //
     | var = ID '=' expr ';' #AssignStmt //
-    | RETURN expr ';'       #ReturnStmt
+    | RETURN expr? ';'       #ReturnStmt
     ;
 
 expr

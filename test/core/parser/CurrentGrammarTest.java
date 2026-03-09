@@ -310,4 +310,41 @@ public class CurrentGrammarTest extends JmmTestEnv {
             """;
         parseSnippet(code);
     }
+
+    @Test
+    public void testVoidReturnWithoutExpression() {
+        var code = """
+            package test;
+            class ReturnVoid {
+                void foo() {
+                    return;
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testNonVoidReturnWithExpression() {
+        var code = """
+            package test;
+            class ReturnInt {
+                int foo() {
+                    return 1;
+                }
+            }
+            """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void testMainMethodEmpty() {
+        var code = """
+                package test;
+                class Test {
+                    public static void main(String[] args) {}
+                }
+            """;
+        parseSnippet(code);
+    }
 }
