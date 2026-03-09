@@ -118,7 +118,7 @@ expr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
     | expr DOT name=ID #Length
-    | NOT expr #NegationExpr
+    | op= NOT expr #NegationExpr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION) expr #BinaryExpr
