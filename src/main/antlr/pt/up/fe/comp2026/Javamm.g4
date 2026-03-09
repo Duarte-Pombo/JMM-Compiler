@@ -7,7 +7,6 @@ grammar Javamm;
 SEMI : ';' ;
 COMMA : ',' ;
 DOT : '.' ;
-EQUALS : '=';
 PLUS : '+' ;
 MINUS : '-' ;
 MULTI : '*' ;
@@ -18,6 +17,13 @@ OPEN_BRACES : '{' ;
 CLOSE_BRACES : '}' ;
 OPEN_PARENTHESES : '(' ;
 CLOSE_PARENTHESES : ')' ;
+LESS_EQUAL: '<=' ;
+GREATER_EQUAL: '>=' ;
+EQEQ: '==';
+NOT_EQUAL: '!=';
+LESS_THAN: '<' ;
+GREATER_THAN: '>' ;
+EQUALS : '=';
 
 CLASS : 'class' ;
 
@@ -106,6 +112,8 @@ expr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES  #NewObject
     | expr op= (MULTI | DIVISION) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
+    | expr op=(LESS_THAN | GREATER_THAN) expr #BinaryOp
+    | expr op=(LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
     | value=INTEGER #IntegerLiteral
     | name=ID #VarRefExpr
     ;
