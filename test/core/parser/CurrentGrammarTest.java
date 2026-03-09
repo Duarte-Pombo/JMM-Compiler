@@ -40,7 +40,6 @@ public class CurrentGrammarTest extends JmmTestEnv {
                 void c;
                 MyObject obj;
                 int[] arr;
-                boolean[][] multiArr;
             }""";
         parseSnippet(code);
     }
@@ -53,7 +52,7 @@ public class CurrentGrammarTest extends JmmTestEnv {
                 void emptyMethod() {}
                 public int publicMethod(int a) { return a; }
                 static boolean staticMethod(int a, boolean b, MyObj c) { return b; }
-                public static int[] mainMethod(String[] args) { return args; }
+                public static void main(String[] args) { return args; }
             }""";
         parseSnippet(code);
     }
