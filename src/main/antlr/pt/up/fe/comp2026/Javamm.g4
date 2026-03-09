@@ -4,23 +4,32 @@ grammar Javamm;
     package pt.up.fe.comp2026;
 }
 
+SEMI : ';' ;
+COMMA : ',' ;
+DOT : '.' ;
+EQUALS : '=';
+PLUS : '+' ;
+MINUS : '-' ;
+MULTI : '*' ;
+DIVISION : '/' ;
+OPEN_BRACKET  : '[' ;
+CLOSE_BRACKET : ']' ;
+OPEN_BRACES : '{' ;
+CLOSE_BRACES : '}' ;
+OPEN_PARENTHESES : '(' ;
+CLOSE_PARENTHESES : ')' ;
+
 CLASS : 'class' ;
 
-//Types
 INT : 'int' ;
 BOOLEAN : 'boolean' ;
 VOID : 'void' ;
-
-OPEN_BRACKET  : '[' ; // for the array
-CLOSE_BRACKET : ']' ; // for the array
-TRUE : 'true' ; // boolean values
-FALSE : 'false' ; // boolean values
-
 STATIC : 'static' ;
 RETURN : 'return' ;
 PACKAGE : 'package' ;
 PUBLIC : 'public' ;
 IMPORT : 'import' ;
+EXTENDS : 'extends';
 
 IF : 'if' ;
 ELSE : 'else' ;
@@ -28,6 +37,8 @@ FOR : 'for' ;
 WHILE : 'while' ;
 NEW: 'new' ;
 
+TRUE : 'true' ;
+FALSE : 'false' ;
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
 
@@ -41,24 +52,24 @@ program
     ;
 
 importDecl
-    : IMPORT path += ID ('.' path += ID)* ';' #ImportDeclaration
+    : IMPORT path += ID (DOT path += ID)* SEMI #ImportDeclaration
     ;
 
 //package is mandatory
 packageDecl
-    : PACKAGE path += ID ('.' path +=ID)* ';'
+    : PACKAGE path += ID (DOT path +=ID)* SEMI
     ;
 
 classDecl
-    : CLASS name=ID ('extends' parent=ID)?
-        '{'
+    : CLASS name=ID (EXTENDS parent=ID)?
+        OPEN_BRACES
         (varDecl | methodDecl)*
-        '}' #ClassDeclaration
+        CLOSE_BRACES #ClassDeclaration
     ;
 
 varDecl
-    : typeNode = type name=ID ';'
-    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET ';'
+    : typeNode = type name=ID SEMI
+    // typeNode = type name=ID op=OPEN_BRACKET op=CLOSE_BRACKET SEMI
     ;
 
 param
@@ -76,28 +87,25 @@ type
 methodDecl locals[boolean isStatic=false]
     : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         returnType = type name=ID
-        '(' (param (',' param)*)?  ')'
-        '{' varDecl* stmt* '}'
+        OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
+        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
     ;
 
 stmt
-    : '{' (stmt)* '}' #CompoundStmt
-    | IF '(' expr ')' stmt (ELSE stmt)? #IfElse
-    | WHILE '(' expr ')' stmt #WhileStmt
-    | expr ';'              #ExprStmt  //
-    | var = ID '=' expr ';' #AssignStmt //
-    | RETURN expr? ';'       #ReturnStmt
+    : OPEN_BRACES (stmt)* CLOSE_BRACES #CompoundStmt
+    | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElse
+    | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
+    | expr SEMI              #ExprStmt
+    | var = ID EQUALS expr SEMI #AssignStmt
+    | RETURN expr? SEMI       #ReturnStmt
     ;
 
 expr
-    : '(' expr ')' #ParenthesesExpr
-    | expr '.' name=ID '(' (expr (',' expr)*)? ')' #MethodCall //
-    | NEW name=ID '(' ')'  #NewObject
-    | expr op= ('*'|'/') expr #BinaryExpr //
-    | expr op= ('+'|'-') expr #BinaryExpr //
-    | value=INTEGER #IntegerLiteral //
+    : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
+    | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
+    | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES  #NewObject
+    | expr op= (MULTI | DIVISION) expr #BinaryExpr
+    | expr op= (PLUS | MINUS) expr #BinaryExpr
+    | value=INTEGER #IntegerLiteral
     | name=ID #VarRefExpr
     ;
-
-
-
