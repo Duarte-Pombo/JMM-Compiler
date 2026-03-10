@@ -142,8 +142,8 @@ expr
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #AdditiveExpr
-    | expr op= (LESS_THAN | GREATER_THAN) expr #BinaryOp
-    | expr op= (LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
+    | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
+    | expr op=(EQEQ | NOT_EQUAL) expr #EqualityExpr
     | expr op= (AND | OR) expr #BinaryOp
     | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
