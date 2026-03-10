@@ -42,23 +42,22 @@ PROTECTED : 'protected' ;
 IMPORT : 'import' ;
 EXTENDS : 'extends';
 LENGTH : 'length';
-
 IF : 'if' ;
 ELSE : 'else' ;
 FOR : 'for' ;
+DO : 'do' ;
 WHILE : 'while' ;
 NEW: 'new' ;
 THIS: 'this';
-
 TRUE : 'true' ;
 FALSE : 'false' ;
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
-
 WS : [ \t\n\r\f]+ -> skip ;
-
 SINGLE_COMMENT: '//' ~[\r\n]*-> skip;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip;
+
+
 
 program
     : packageDecl importDecl* classNode=classDecl EOF
