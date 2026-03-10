@@ -138,6 +138,7 @@ expr
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
     | expr DOT LENGTH #Length
     | op= NOT expr #NegationExpr
+    | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
