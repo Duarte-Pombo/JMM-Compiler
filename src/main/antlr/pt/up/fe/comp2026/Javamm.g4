@@ -87,6 +87,7 @@ param
 
 type
     : val = INT OPEN_BRACKET CLOSE_BRACKET #IntegerArray
+    | val = ID OPEN_BRACKET CLOSE_BRACKET  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
