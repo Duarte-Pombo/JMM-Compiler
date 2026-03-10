@@ -141,6 +141,7 @@ expr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
+    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtention
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #AdditiveExpr
     | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
