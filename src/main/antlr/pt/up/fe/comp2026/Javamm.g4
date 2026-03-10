@@ -37,6 +37,8 @@ STATIC : 'static' ;
 RETURN : 'return' ;
 PACKAGE : 'package' ;
 PUBLIC : 'public' ;
+PRIVATE : 'private' ;
+PROTECTED : 'protected' ;
 IMPORT : 'import' ;
 EXTENDS : 'extends';
 LENGTH : 'length';
