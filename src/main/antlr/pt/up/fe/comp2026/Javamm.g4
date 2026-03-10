@@ -39,6 +39,7 @@ PACKAGE : 'package' ;
 PUBLIC : 'public' ;
 IMPORT : 'import' ;
 EXTENDS : 'extends';
+LENGTH : 'length';
 
 IF : 'if' ;
 ELSE : 'else' ;
@@ -118,7 +119,7 @@ expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
-    | expr DOT name=ID #Length
+    | expr DOT LENGTH #Length
     | op= NOT expr #NegationExpr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
