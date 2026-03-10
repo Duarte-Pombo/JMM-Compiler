@@ -89,9 +89,9 @@ param
     ;
 
 type
-    : val = INT OPEN_BRACKET CLOSE_BRACKET #IntegerArray
-    | val = STRING OPEN_BRACKET CLOSE_BRACKET #StringArray 
-    | val = ID OPEN_BRACKET CLOSE_BRACKET  #IDArray
+    : val = INT (OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
+    | val = STRING (OPEN_BRACKET CLOSE_BRACKET)+ #StringArray 
+    | val = ID (OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
