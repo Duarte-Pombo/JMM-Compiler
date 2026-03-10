@@ -118,6 +118,7 @@ stmt
     : OPEN_BRACES (stmt)* CLOSE_BRACES #CompoundStmt
     | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElseStmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
+    | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
     | expr SEMI #ExprStmt
     | var = ID EQUALS expr SEMI #AssignStmt
     | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
