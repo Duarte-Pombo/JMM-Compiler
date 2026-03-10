@@ -27,9 +27,9 @@ LESS_THAN: '<' ;
 GREATER_THAN: '>' ;
 EQUALS : '=';
 NOT: '!';
-
+INC : '++';
+DEC : '--';
 CLASS : 'class' ;
-
 INT : 'int' ;
 BOOLEAN : 'boolean' ;
 VOID : 'void' ;
