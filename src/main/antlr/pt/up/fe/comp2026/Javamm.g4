@@ -123,7 +123,7 @@ expr
     | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | expr op= (MULTI | DIVISION) expr #BinaryExpr
-    | expr op= (PLUS | MINUS) expr #BinaryExpr
+    | expr op= (PLUS | MINUS) expr #AdditiveExpr
     | expr op= (LESS_THAN | GREATER_THAN) expr #BinaryOp
     | expr op= (LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
     | expr op= (AND | OR) expr #BinaryOp
