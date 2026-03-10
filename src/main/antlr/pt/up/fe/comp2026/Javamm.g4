@@ -51,6 +51,7 @@ NEW: 'new' ;
 THIS: 'this';
 TRUE : 'true' ;
 FALSE : 'false' ;
+STRING : 'string' ;
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
 WS : [ \t\n\r\f]+ -> skip ;
@@ -89,6 +90,7 @@ param
 
 type
     : val = INT OPEN_BRACKET CLOSE_BRACKET #IntegerArray
+    | val = STRING OPEN_BRACKET CLOSE_BRACKET #StringArray 
     | val = ID OPEN_BRACKET CLOSE_BRACKET  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
