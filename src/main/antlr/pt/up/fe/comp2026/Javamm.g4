@@ -11,6 +11,7 @@ PLUS : '+' ;
 MINUS : '-' ;
 MULTI : '*' ;
 DIVISION : '/' ;
+MOD : '%' ;
 OPEN_BRACKET  : '[' ;
 CLOSE_BRACKET : ']' ;
 OPEN_BRACES : '{' ;
@@ -27,9 +28,9 @@ LESS_THAN: '<' ;
 GREATER_THAN: '>' ;
 EQUALS : '=';
 NOT: '!';
-
+INC : '++';
+DEC : '--';
 CLASS : 'class' ;
-
 INT : 'int' ;
 BOOLEAN : 'boolean' ;
 VOID : 'void' ;
@@ -37,25 +38,28 @@ STATIC : 'static' ;
 RETURN : 'return' ;
 PACKAGE : 'package' ;
 PUBLIC : 'public' ;
+PRIVATE : 'private' ;
+PROTECTED : 'protected' ;
 IMPORT : 'import' ;
 EXTENDS : 'extends';
-
+LENGTH : 'length';
 IF : 'if' ;
 ELSE : 'else' ;
 FOR : 'for' ;
+DO : 'do' ;
 WHILE : 'while' ;
 NEW: 'new' ;
 THIS: 'this';
-
 TRUE : 'true' ;
 FALSE : 'false' ;
+STRING : 'string' ;
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
-
 WS : [ \t\n\r\f]+ -> skip ;
-
 SINGLE_COMMENT: '//' ~[\r\n]*-> skip;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip;
+
+
 
 program
     : packageDecl importDecl* classNode=classDecl EOF
@@ -78,7 +82,7 @@ classDecl
     ;
 
 varDecl
-    : typeNode = type name=ID SEMI
+    : typeNode = type name=ID (EQUALS expr)? SEMI
     ;
 
 param
@@ -86,7 +90,9 @@ param
     ;
 
 type
-    : val = INT OPEN_BRACKET CLOSE_BRACKET #IntegerArray
+    : val = INT (OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
+    | val = STRING (OPEN_BRACKET CLOSE_BRACKET)+ #StringArray 
+    | val = ID (OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
@@ -94,22 +100,34 @@ type
     ;
 
 methodDecl locals[boolean isStatic=false]
-    : (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
-        type name=ID
+    : (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)? 
+        (STATIC {$isStatic=true;})?
+        typeNode=type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
-        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
-    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})
-        VOID name=ID OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
-        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
+        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
+      #GeneralMethodDecl
+    | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
+        (STATIC {$isStatic=true;})?
+        VOID name=ID
+        OPEN_PARENTHESES STRING OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
+        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
+      #MainMethodDecl
     ;
 
 stmt
     : OPEN_BRACES (stmt)* CLOSE_BRACES #CompoundStmt
     | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElseStmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
+    | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
+    | FOR OPEN_PARENTHESES 
+        (initVar = ID EQUALS expr)? 
+        SEMI expr SEMI
+        (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
+        CLOSE_PARENTHESES stmt 
+          #ForStmt
     | expr SEMI #ExprStmt
-    | var = expr EQUALS expr SEMI #AssignStmt
-    | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
+    | var = ID EQUALS expr SEMI #AssignStmt
+    | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
 
@@ -117,15 +135,18 @@ expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
-    | expr DOT name=ID #Length
+    | expr DOT LENGTH #Length
     | op= NOT expr #NegationExpr
-    | NEW name=ID OPEN_PARENTHESES CLOSE_PARENTHESES #NewObject
+    | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
+    | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
-    | expr op= (MULTI | DIVISION) expr #BinaryExpr
-    | expr op= (PLUS | MINUS) expr #BinaryExpr
-    | expr op= (LESS_THAN | GREATER_THAN) expr #BinaryOp
-    | expr op= (LESS_EQUAL | GREATER_EQUAL | EQEQ | NOT_EQUAL) expr #BinaryOp
-    | expr op= (AND | OR) expr #BinaryOp
+    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
+    | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
+    | expr op= (PLUS | MINUS) expr #AdditiveExpr
+    | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
+    | expr op=(EQEQ | NOT_EQUAL) expr #EqualityExpr
+    | expr op= AND expr #AndExpr
+    | expr op= OR expr #OrExpr
     | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
     | value=TRUE #BooleanLiteral
