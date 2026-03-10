@@ -144,7 +144,8 @@ expr
     | expr op= (PLUS | MINUS) expr #AdditiveExpr
     | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
     | expr op=(EQEQ | NOT_EQUAL) expr #EqualityExpr
-    | expr op= (AND | OR) expr #BinaryOp
+    | expr op= AND expr #AndExpr
+    | expr op= OR expr #OrExpr
     | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
     | value=TRUE #BooleanLiteral
