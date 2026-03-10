@@ -81,7 +81,7 @@ classDecl
     ;
 
 varDecl
-    : typeNode = type name=ID SEMI
+    : typeNode = type name=ID (EQUALS init=expr)? SEMI
     ;
 
 param
