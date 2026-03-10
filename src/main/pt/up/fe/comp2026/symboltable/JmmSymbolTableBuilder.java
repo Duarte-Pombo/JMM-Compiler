@@ -72,6 +72,7 @@ public class JmmSymbolTableBuilder {
         var packagePathList = packageDecl.getObjectAsList("path", String.class);
         var packagePath = String.join(".", packagePathList);
 
+
         var classDecl = root.getObject("classNode", JmmNode.class);
         SpecsCheck.checkArgument(CLASS_DECL.check(classDecl), () -> "Expected a class declaration: " + classDecl);
 
@@ -88,7 +89,10 @@ public class JmmSymbolTableBuilder {
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, null, fields, methods, importer);
+        // Including expands and defaulting to Object
+        var superClassName = classDecl.getOptional("parent").orElse("Object");
+
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
         return new SymbolTableBuilderResult(symbolTable, reports);
     }
