@@ -82,7 +82,7 @@ classDecl
     ;
 
 varDecl
-    : typeNode = type name=ID (EQUALS init=expr)? SEMI
+    : typeNode = type name=ID (EQUALS expr)? SEMI
     ;
 
 param
@@ -104,14 +104,13 @@ methodDecl locals[boolean isStatic=false]
         (STATIC {$isStatic=true;})?
         typeNode=type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
-        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
+        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #GeneralMethodDecl
-
     | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
         (STATIC {$isStatic=true;})?
         VOID name=ID
         OPEN_PARENTHESES STRING OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
-        OPEN_BRACES varDecl* stmt* CLOSE_BRACES
+        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #MainMethodDecl
     ;
 
@@ -141,7 +140,7 @@ expr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
-    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtention
+    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #AdditiveExpr
     | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr

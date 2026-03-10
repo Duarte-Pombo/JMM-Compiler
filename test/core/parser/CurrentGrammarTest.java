@@ -529,7 +529,7 @@ public class CurrentGrammarTest extends JmmTestEnv {
         package test;
         class BooleanLiteralsTest {
             void testBooleans() {
-                boolean b;
+                boolean b = false;
                 b = true;
                 b = false;
             }
