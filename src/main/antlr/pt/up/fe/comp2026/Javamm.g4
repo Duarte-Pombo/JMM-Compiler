@@ -98,7 +98,7 @@ methodDecl locals[boolean isStatic=false]
         type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
         OPEN_BRACES varDecl* stmt* CLOSE_BRACES
-    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})
+    | (visibility=PUBLIC)? (STATIC {$isStatic=true;})?
         VOID name=ID OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
         OPEN_BRACES varDecl* stmt* CLOSE_BRACES
     ;
