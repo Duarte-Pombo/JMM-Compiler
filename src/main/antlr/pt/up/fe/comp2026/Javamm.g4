@@ -119,6 +119,12 @@ stmt
     | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElseStmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
     | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
+    | FOR OPEN_PARENTHESES 
+        (initVar = ID EQUALS expr)? 
+        SEMI expr SEMI
+        (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
+        CLOSE_PARENTHESES stmt 
+          #ForStmt
     | expr SEMI #ExprStmt
     | var = ID EQUALS expr SEMI #AssignStmt
     | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
