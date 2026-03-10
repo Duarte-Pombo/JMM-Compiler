@@ -553,4 +553,213 @@ public class CurrentGrammarTest extends JmmTestEnv {
         """;
         parseSnippet(code);
     }
+    @Test
+    public void doWhileLoop() {
+        var code = """
+        package test;
+        class DoWhileTest {
+            void testLoop() {
+                int a;
+                a = 0;
+                do {
+                    a = a + 1;
+                } while (a < 10);
+            }
+        }
+        """;
+
+        parseSnippet(code);
+    }
+    @Test
+    public void forLoopError() {
+        var code = """
+        package test;
+        class ForLoopTest {
+            void testLoop() {
+                int i;
+                for () {
+                    i = i + 2;
+                }
+            }
+        }
+        """;
+        parseSnippetWithErrors(code);
+    }
+
+    @Test
+    public void forLoop() {
+        var code = """
+        package test;
+        class ForLoopTest {
+            void testLoop() {
+                int i;
+                for (i = 0; i < 10; i = i + 1) {
+                    i = i + 2;
+                }
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void arrayInitializerSimple() {
+        var code = """
+        package test;
+        class ArrayInitSimple {
+            void test() {
+                int[] a;
+                a = new int[] {1, 2, 3};
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void arrayInitializerEmpty() {
+        var code = """
+        package test;
+        class ArrayInitEmpty {
+            void test() {
+                int[] a;
+                a = new int[] {};
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void arrayInitializerExpressions() {
+        var code = """
+        package test;
+        class ArrayInitExpr {
+            void test() {
+                int[] a;
+                a = new int[] {1 + 2, 3 * 4, 5};
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void newObjectOneArg() {
+        var code = """
+        package test;
+        class NewObjectArg {
+            void test() {
+                A a;
+                a = new A(10);
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void newObjectMultipleArgs() {
+        var code = """
+        package test;
+        class NewObjectArgs {
+            void test() {
+                A a;
+                a = new A(1, 2, 3);
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void newObjectExpressionArgs() {
+        var code = """
+        package test;
+        class NewObjectExprArgs {
+            void test() {
+                A a;
+                a = new A(1 + 2, 3 * 4);
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void multiArrayDeclaration() {
+        var code = """
+        package test;
+        class MultiArrayDecl {
+            void test() {
+                int[][] matrix;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void multiArrayCreation() {
+        var code = """
+        package test;
+        class MultiArrayCreate {
+            void test() {
+                int[][] matrix;
+                matrix = new int[3][4];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void multiArrayAccess() {
+        var code = """
+        package test;
+        class MultiArrayAccess {
+            void test() {
+                int[][] matrix;
+                int value;
+
+                matrix = new int[3][3];
+                value = matrix[1][2];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void multiArrayStore() {
+        var code = """
+        package test;
+        class MultiArrayStore {
+            void test() {
+                int[][] matrix;
+
+                matrix = new int[2][2];
+                matrix[0][1] = 5;
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
+
+    @Test
+    public void multiArrayNestedExpr() {
+        var code = """
+        package test;
+        class MultiArrayExpr {
+            void test() {
+                int[][] matrix;
+                int x;
+
+                matrix = new int[3][3];
+                x = matrix[1][1] + matrix[2][2];
+            }
+        }
+        """;
+        parseSnippet(code);
+    }
 }
