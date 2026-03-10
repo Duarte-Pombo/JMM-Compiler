@@ -42,7 +42,6 @@ PRIVATE : 'private' ;
 PROTECTED : 'protected' ;
 IMPORT : 'import' ;
 EXTENDS : 'extends';
-LENGTH : 'length';
 IF : 'if' ;
 ELSE : 'else' ;
 FOR : 'for' ;
@@ -126,7 +125,7 @@ stmt
         CLOSE_PARENTHESES stmt 
           #ForStmt
     | expr SEMI #ExprStmt
-    | var = ID EQUALS expr SEMI #AssignStmt
+    | var = expr EQUALS expr SEMI #AssignStmt
     | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
@@ -135,7 +134,7 @@ expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
-    | expr DOT LENGTH #Length
+    | expr DOT name=ID #FieldAccess
     | op= NOT expr #NegationExpr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject

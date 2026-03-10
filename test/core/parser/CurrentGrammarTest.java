@@ -532,6 +532,7 @@ public class CurrentGrammarTest extends JmmTestEnv {
                 boolean b = false;
                 b = true;
                 b = false;
+                this.x = true;
             }
         }
         """;
