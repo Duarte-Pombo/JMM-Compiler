@@ -57,7 +57,17 @@ public class JmmSymbolTableBuilder {
 
     private SymbolTableBuilderResult buildInternal() {
 
+        // New additions
+        // Import
+        var importDecls = root.getChildren(IMPORT_DECL); //.getFirst().get(JmmAttributes.IMPORT_DECLARATION.PATH);
+        for (var importNode : importDecls) {
+            var pathList = importNode.getObjectAsList("path", String.class);
+            var fullImport = String.join(".", pathList);
+            this.imports.add(fullImport);
+        }
+        
 
+        // Given code
         var packageDecl = root.getChildren(PACKAGE_DECL).getFirst();
         var packagePathList = packageDecl.getObjectAsList("path", String.class);
         var packagePath = String.join(".", packagePathList);
