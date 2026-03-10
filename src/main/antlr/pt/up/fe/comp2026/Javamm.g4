@@ -108,7 +108,7 @@ stmt
     | IF OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt (ELSE stmt)? #IfElseStmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
     | expr SEMI #ExprStmt
-    | var = expr EQUALS expr SEMI #AssignStmt
+    | var = ID EQUALS expr SEMI #AssignStmt
     | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
