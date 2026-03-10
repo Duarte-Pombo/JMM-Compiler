@@ -127,7 +127,7 @@ stmt
           #ForStmt
     | expr SEMI #ExprStmt
     | var = ID EQUALS expr SEMI #AssignStmt
-    | var = ID OPEN_BRACKET expr CLOSE_BRACKET EQUALS expr SEMI #ArrayAssignStmt
+    | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
 
