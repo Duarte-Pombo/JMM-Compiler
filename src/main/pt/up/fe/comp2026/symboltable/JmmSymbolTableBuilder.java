@@ -94,6 +94,13 @@ public class JmmSymbolTableBuilder {
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
+        // 👇 ADD THIS BLOCK TO VIEW THE SYMBOL TABLE 👇
+        //System.out.println("\n========================================");
+        //System.out.println(" SYMBOL TABLE FOR: " + className);
+        //System.out.println("========================================");
+        //System.out.println(symbolTable.print()); // (or just System.out.println(symbolTable);)
+        //System.out.println("========================================\n");
+
         return new SymbolTableBuilderResult(symbolTable, reports);
     }
 
@@ -105,10 +112,11 @@ public class JmmSymbolTableBuilder {
 
     private Symbol buildField(JmmNode varDecl) {
         var fieldName = varDecl.get(JmmAttributes.VAR_DECL.NAME);
+        var typeNode = varDecl.getChildren().getFirst();
+        var type = TypeUtils.convertType(typeNode);
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildField(): Assuming return type of method is always int, and always has a single int parameter, needs to be expanded");
-        var type = TypeUtils.intType();
         return new Symbol(type, fieldName);
+
     }
 
     private List<MethodSymbol> buildMethods(JmmNode classDecl) {
@@ -122,15 +130,37 @@ public class JmmSymbolTableBuilder {
     private MethodSymbol buildMethod(JmmNode method) {
         var methodName = method.get("name");
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildMethod(): Assuming return type of method is always int, and always has a single int parameter, needs to be expanded");
-        var returnType = TypeUtils.intType();
+        System.out.println("\n------buildMethod------\n");
+        System.out.println(method);
+        System.out.println(methodName);
+        System.out.println("\n------End------\n");
+
+        var typeNode = method.getChildren().getFirst();
+        var returnType = TypeUtils.convertType(typeNode);
 
 
-        var params = List.of(new Symbol(TypeUtils.intType(), method.getChildren(PARAM).getFirst().get(JmmAttributes.PARAM.NAME)));
+        var params = method.getChildren(PARAM).stream()
+            .map(paramNode -> {
+                var paramName = paramNode.get("name");
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildMethod(): Assuming all VarDecls are ints, needs to be expanded");
+                var paramTypeNode = paramNode.getChildren().getFirst() ;
+
+                var paramType =TypeUtils.convertType(paramTypeNode) ;
+
+                return new Symbol(paramType, paramName);
+            })
+            .toList();
+
         var locals = method.getChildren(VAR_DECL).stream()
-                .map(varDecl -> new Symbol(TypeUtils.intType(), varDecl.get(JmmAttributes.VAR_DECL.NAME)))
+                .map(varDecl -> {
+                    var varName = varDecl.get("name");
+
+                    var varTypeNode = varDecl.getChildren().getFirst() ;
+
+                    var varType =TypeUtils.convertType(varTypeNode) ;
+
+                    return new Symbol(varType, varName);
+                })
                 .toList();
 
         var visibility =  Visibility.PUBLIC;

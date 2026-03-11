@@ -40,13 +40,24 @@ public class TypeUtils {
         return JmmPrimitiveType.INT;
     }
 
-    public JmmType convertType(JmmNode typeNode) {
-        assert (TYPE.check(typeNode));
+    public static JmmType convertType(JmmNode typeNode) {
+    String kind = typeNode.getKind().toString();
+    //System.out.println(kind);
 
-        System.out.println("[TODO] TypeUtils.convertType(): Implement for classes and arrays");
-        var name = typeNode.get("name");
-        return JmmPrimitiveType.fromString(name).orElseThrow();
-    }
+    return switch (kind) {
+        case "INT" -> JmmPrimitiveType.INT;
+        case "BOOLEAN" -> JmmPrimitiveType.fromString("boolean").orElseThrow();
+        case "VOID" -> JmmPrimitiveType.fromString("void").orElseThrow();
+
+        case "ID" -> new JmmClassType(typeNode.get("val"),false, false);
+
+        case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, 1);
+        case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String",false, false), 1);
+        case "ID_ARRAY" -> new JmmArrayType(new JmmClassType(typeNode.get("val"),false, false), 1);
+
+        default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
+    };
+}
 
 
     /**
