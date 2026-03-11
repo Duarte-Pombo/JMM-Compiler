@@ -40,24 +40,39 @@ public class TypeUtils {
         return JmmPrimitiveType.INT;
     }
 
+    // Used by Opt
     public static JmmType convertType(JmmNode typeNode) {
-    String kind = typeNode.getKind().toString();
-    //System.out.println(kind);
+        return convertType(typeNode, new ArrayList<>()); // Passes an empty list
+    }
 
-    return switch (kind) {
-        case "INT" -> JmmPrimitiveType.INT;
-        case "BOOLEAN" -> JmmPrimitiveType.fromString("boolean").orElseThrow();
-        case "VOID" -> JmmPrimitiveType.fromString("void").orElseThrow();
+    public static JmmType convertType(JmmNode typeNode, List<String> imports) {
+        String kind = typeNode.getKind().toString();
 
-        case "ID" -> new JmmClassType(typeNode.get("val"),false, false);
+        return switch (kind) {
+            // Primitives
+            case "INT" -> JmmPrimitiveType.INT;
+            case "BOOLEAN" -> JmmPrimitiveType.fromString("boolean").orElseThrow();
+            case "VOID" -> JmmPrimitiveType.fromString("void").orElseThrow();
 
-        case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, 1);
-        case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String",false, false), 1);
-        case "ID_ARRAY" -> new JmmArrayType(new JmmClassType(typeNode.get("val"),false, false), 1);
+            // Custom Classes
+            case "ID" -> {
+                String typeName = typeNode.get("val");
+                boolean isImported = imports.stream().anyMatch(i -> i.endsWith("." + typeName) || i.equals(typeName));
+                yield new JmmClassType(typeName, isImported, false);
+            }
 
-        default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
-    };
-}
+            // Arrays
+            case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, 1);
+            case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), 1);
+            case "ID_ARRAY" -> {
+                String typeName = typeNode.get("val");
+                boolean isImported = imports.stream().anyMatch(i -> i.endsWith("." + typeName) || i.equals(typeName));
+                yield new JmmArrayType(new JmmClassType(typeName, isImported, false), 1);
+            }
+
+            default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
+        };
+    }
 
 
     /**
@@ -83,11 +98,18 @@ public class TypeUtils {
 
         // Get name of the method
         var methodName = methodDecl.get("name");
+        var params = new ArrayList<JmmType>();
 
-        System.out.println("[TODO] TypeUtils.getMethodDeclSignature(): Supporting only methods with a single parameter that is an int, needs to be expanded");
-        var params = List.of(intType());
+        if (methodDecl.getKind().toString().equals("MAIN_METHOD_DECL")) {
+            params.add(new JmmArrayType(new JmmClassType("String", false, false), 1));
+        } else {
+            for (var paramNode : methodDecl.getChildren(JmmKind.PARAM)) {
+                var paramTypeNode = paramNode.getChildren().getFirst();
+                // We can use the 1-parameter convertType overload here safely
+                params.add(convertType(paramTypeNode));
+            }
+        }
 
-        // Create method signature with method name and types of parameters
         return new Signature(methodName, params);
     }
 

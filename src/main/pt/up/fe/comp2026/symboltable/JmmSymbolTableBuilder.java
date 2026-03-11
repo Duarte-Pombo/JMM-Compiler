@@ -63,7 +63,7 @@ public class JmmSymbolTableBuilder {
         for (var importNode : importDecls) {
             var pathList = importNode.getObjectAsList("path", String.class);
             var fullImport = String.join(".", pathList);
-            this.imports.add(fullImport);
+            if (!imports.contains(fullImport)) { this.imports.add(fullImport); }
         }
         
 
@@ -94,7 +94,7 @@ public class JmmSymbolTableBuilder {
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
-        // 👇 ADD THIS BLOCK TO VIEW THE SYMBOL TABLE 👇
+        // 👇 Uncommenting displays the  SYMBOL TABLE 👇
         //System.out.println("\n========================================");
         //System.out.println(" SYMBOL TABLE FOR: " + className);
         //System.out.println("========================================");
@@ -113,7 +113,7 @@ public class JmmSymbolTableBuilder {
     private Symbol buildField(JmmNode varDecl) {
         var fieldName = varDecl.get(JmmAttributes.VAR_DECL.NAME);
         var typeNode = varDecl.getChildren().getFirst();
-        var type = TypeUtils.convertType(typeNode);
+        var type = TypeUtils.convertType(typeNode,imports);
 
         return new Symbol(type, fieldName);
 
@@ -136,34 +136,50 @@ public class JmmSymbolTableBuilder {
         System.out.println("\n------End------\n");
 
         var typeNode = method.getChildren().getFirst();
-        var returnType = TypeUtils.convertType(typeNode);
+        var returnType = TypeUtils.convertType(typeNode,imports);
 
 
-        var params = method.getChildren(PARAM).stream()
-            .map(paramNode -> {
-                var paramName = paramNode.get("name");
+        // 1. Build and validate parameters in ONE pass
+        var params = new ArrayList<Symbol>();
+        var paramNames = new HashSet<String>();
 
-                var paramTypeNode = paramNode.getChildren().getFirst() ;
+        for (var paramNode : method.getChildren(PARAM)) {
+            var paramName = paramNode.get("name");
 
-                var paramType =TypeUtils.convertType(paramTypeNode) ;
+            // .add() returns false if the name is already in the set!
+            if (!paramNames.add(paramName)) {
+                reports.add(newError(method, "Duplicate parameter name: " + paramName));
+            }
 
-                return new Symbol(paramType, paramName);
-            })
-            .toList();
+            var paramTypeNode = paramNode.getChildren().getFirst();
+            var paramType = TypeUtils.convertType(paramTypeNode,imports);
+            params.add(new Symbol(paramType, paramName));
+        }
 
-        var locals = method.getChildren(VAR_DECL).stream()
-                .map(varDecl -> {
-                    var varName = varDecl.get("name");
+        // 2. Build and validate local variables in ONE pass
+        var locals = new ArrayList<Symbol>();
+        var localNames = new HashSet<String>();
 
-                    var varTypeNode = varDecl.getChildren().getFirst() ;
+        for (var varDecl : method.getChildren(VAR_DECL)) {
+            var varName = varDecl.get("name");
 
-                    var varType =TypeUtils.convertType(varTypeNode) ;
+            // Check against parameters, and check/add to localNames
+            if (paramNames.contains(varName) || !localNames.add(varName)) {
+                reports.add(newError(method, "Duplicate local variable name: " + varName));
+            }
 
-                    return new Symbol(varType, varName);
-                })
-                .toList();
+            var varTypeNode = varDecl.getChildren().getFirst();
+            var varType = TypeUtils.convertType(varTypeNode,imports);
+            locals.add(new Symbol(varType, varName));
+        }
 
-        var visibility =  Visibility.PUBLIC;
+        var visibility = Visibility.PUBLIC;
+            if (method.getOptional("visibility").isPresent()) {
+                String visStr = method.get("visibility");
+                if (visStr.equals("private")) visibility = Visibility.PRIVATE;
+                else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
+            }
+
         var isStatic = method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
         return new MethodSymbol(methodName, returnType, params, locals, isStatic, visibility);
     }
