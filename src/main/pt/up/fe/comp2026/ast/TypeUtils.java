@@ -42,10 +42,10 @@ public class TypeUtils {
 
     // Used by Opt
     public static JmmType convertType(JmmNode typeNode) {
-        return convertType(typeNode, new ArrayList<>()); // Passes an empty list
+        return convertType(typeNode, new ArrayList<>(), null);
     }
 
-    public static JmmType convertType(JmmNode typeNode, List<String> imports) {
+    public static JmmType convertType(JmmNode typeNode, List<String> imports, String currentClassFqName) {
         String kind = typeNode.getKind().toString();
 
         return switch (kind) {
@@ -57,8 +57,17 @@ public class TypeUtils {
             // Custom Classes
             case "ID" -> {
                 String typeName = typeNode.get("val");
-                boolean isImported = imports.stream().anyMatch(i -> i.endsWith("." + typeName) || i.equals(typeName));
-                yield new JmmClassType(typeName, isImported, false);
+                Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
+
+                if (importFq.isPresent()) {
+                    yield new JmmClassType(importFq.get(), true, false);
+                } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
+                    yield new JmmClassType(currentClassFqName, false, false);
+                } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
+                    yield new JmmClassType(currentClassFqName, false, false);
+                } else {
+                    yield new JmmClassType(typeName, false, false);
+                }
             }
 
             // Arrays
@@ -66,8 +75,17 @@ public class TypeUtils {
             case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), 1);
             case "ID_ARRAY" -> {
                 String typeName = typeNode.get("val");
-                boolean isImported = imports.stream().anyMatch(i -> i.endsWith("." + typeName) || i.equals(typeName));
-                yield new JmmArrayType(new JmmClassType(typeName, isImported, false), 1);
+                Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
+
+                if (importFq.isPresent()) {
+                    yield new JmmArrayType(new JmmClassType(importFq.get(), true, false), 1);
+                } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                } else {
+                    yield new JmmArrayType(new JmmClassType(typeName, false, false), 1);
+                }
             }
 
             default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);

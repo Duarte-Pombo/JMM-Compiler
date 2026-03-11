@@ -26,6 +26,7 @@ public class JmmSymbolTableBuilder {
     private final JmmNode root;
     private final Importer importer;
     public String className;
+    private String fullyQualifiedName;
     private final List<Report> reports;
     private final List<String> imports;
     private final Map<String, String> declaredClasses;
@@ -77,7 +78,7 @@ public class JmmSymbolTableBuilder {
         SpecsCheck.checkArgument(CLASS_DECL.check(classDecl), () -> "Expected a class declaration: " + classDecl);
 
         this.className = classDecl.get("name");
-        var fullyQualifiedName = packagePath + "." + className;
+        this.fullyQualifiedName = packagePath + "." + className;
 
         // Check if className is available
         if (declaredClasses.containsKey(className)) {
@@ -98,7 +99,7 @@ public class JmmSymbolTableBuilder {
         //System.out.println("\n========================================");
         //System.out.println(" SYMBOL TABLE FOR: " + className);
         //System.out.println("========================================");
-        //System.out.println(symbolTable.print()); // (or just System.out.println(symbolTable);)
+        //System.out.println(symbolTable.print());
         //System.out.println("========================================\n");
 
         return new SymbolTableBuilderResult(symbolTable, reports);
@@ -113,7 +114,7 @@ public class JmmSymbolTableBuilder {
     private Symbol buildField(JmmNode varDecl) {
         var fieldName = varDecl.get(JmmAttributes.VAR_DECL.NAME);
         var typeNode = varDecl.getChildren().getFirst();
-        var type = TypeUtils.convertType(typeNode,imports);
+        var type = TypeUtils.convertType(typeNode,imports,this.fullyQualifiedName);
 
         return new Symbol(type, fieldName);
 
@@ -127,19 +128,20 @@ public class JmmSymbolTableBuilder {
 
     }
 
+    // The validations inside this are for method scope only
     private MethodSymbol buildMethod(JmmNode method) {
         var methodName = method.get("name");
 
-        System.out.println("\n------buildMethod------\n");
-        System.out.println(method);
-        System.out.println(methodName);
-        System.out.println("\n------End------\n");
+        //System.out.println("\n------buildMethod------\n");
+        //System.out.println(method);
+        //System.out.println(methodName);
+        //System.out.println("\n------End------\n");
 
         var typeNode = method.getChildren().getFirst();
-        var returnType = TypeUtils.convertType(typeNode,imports);
+        var returnType = TypeUtils.convertType(typeNode,imports,this.fullyQualifiedName);
 
 
-        // 1. Build and validate parameters in ONE pass
+        // 1. Build and validate parameters
         var params = new ArrayList<Symbol>();
         var paramNames = new HashSet<String>();
 
@@ -152,11 +154,11 @@ public class JmmSymbolTableBuilder {
             }
 
             var paramTypeNode = paramNode.getChildren().getFirst();
-            var paramType = TypeUtils.convertType(paramTypeNode,imports);
+            var paramType = TypeUtils.convertType(paramTypeNode,imports,this.fullyQualifiedName);
             params.add(new Symbol(paramType, paramName));
         }
 
-        // 2. Build and validate local variables in ONE pass
+        // 2. Build and validate local variables
         var locals = new ArrayList<Symbol>();
         var localNames = new HashSet<String>();
 
@@ -169,7 +171,7 @@ public class JmmSymbolTableBuilder {
             }
 
             var varTypeNode = varDecl.getChildren().getFirst();
-            var varType = TypeUtils.convertType(varTypeNode,imports);
+            var varType = TypeUtils.convertType(varTypeNode,imports,this.fullyQualifiedName);
             locals.add(new Symbol(varType, varName));
         }
 
