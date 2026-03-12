@@ -40,12 +40,56 @@ public class TypeUtils {
         return JmmPrimitiveType.INT;
     }
 
-    public JmmType convertType(JmmNode typeNode) {
-        assert (TYPE.check(typeNode));
+    // Used by Opt
+    public static JmmType convertType(JmmNode typeNode) {
+        return convertType(typeNode, new ArrayList<>(), null);
+    }
 
-        System.out.println("[TODO] TypeUtils.convertType(): Implement for classes and arrays");
-        var name = typeNode.get("name");
-        return JmmPrimitiveType.fromString(name).orElseThrow();
+    public static JmmType convertType(JmmNode typeNode, List<String> imports, String currentClassFqName) {
+        String kind = typeNode.getKind().toString();
+
+        return switch (kind) {
+            // Primitives
+            case "INT" -> JmmPrimitiveType.INT;
+            case "BOOLEAN" -> JmmPrimitiveType.fromString("boolean").orElseThrow();
+            case "VOID" -> JmmPrimitiveType.fromString("void").orElseThrow();
+
+            // Custom Classes
+            case "ID" -> {
+                String typeName = typeNode.get("val");
+                Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
+
+                if (importFq.isPresent()) {
+                    yield new JmmClassType(importFq.get(), true, false);
+                } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
+                    yield new JmmClassType(currentClassFqName, false, false);
+                } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
+                    yield new JmmClassType(currentClassFqName, false, false);
+                } else {
+                    yield new JmmClassType(typeName, false, false);
+                }
+            }
+
+            // Arrays
+            case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, 1);
+            case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), 1);
+            case "ID_ARRAY" -> {
+                String typeName = typeNode.get("val");
+                Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
+
+                if (importFq.isPresent()) {
+                    yield new JmmArrayType(new JmmClassType(importFq.get(), true, false), 1);
+                } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                } else {
+                    yield new JmmArrayType(new JmmClassType(typeName, false, false), 1);
+                }
+            }
+
+            default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
+        };
     }
 
 
@@ -72,11 +116,18 @@ public class TypeUtils {
 
         // Get name of the method
         var methodName = methodDecl.get("name");
+        var params = new ArrayList<JmmType>();
 
-        System.out.println("[TODO] TypeUtils.getMethodDeclSignature(): Supporting only methods with a single parameter that is an int, needs to be expanded");
-        var params = List.of(intType());
+        if (methodDecl.getKind().toString().equals("MAIN_METHOD_DECL")) {
+            params.add(new JmmArrayType(new JmmClassType("String", false, false), 1));
+        } else {
+            for (var paramNode : methodDecl.getChildren(JmmKind.PARAM)) {
+                var paramTypeNode = paramNode.getChildren().getFirst();
+                // We can use the 1-parameter convertType overload here safely
+                params.add(convertType(paramTypeNode));
+            }
+        }
 
-        // Create method signature with method name and types of parameters
         return new Signature(methodName, params);
     }
 

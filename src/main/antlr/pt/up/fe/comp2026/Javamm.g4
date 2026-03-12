@@ -134,6 +134,7 @@ expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
     | expr DOT name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #MethodCall
+    | name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #ImplicitCall
     | expr DOT name=ID #FieldAccess
     | op= NOT expr #NegationExpr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr

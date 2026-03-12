@@ -26,6 +26,7 @@ public class JmmSymbolTableBuilder {
     private final JmmNode root;
     private final Importer importer;
     public String className;
+    private String fullyQualifiedName;
     private final List<Report> reports;
     private final List<String> imports;
     private final Map<String, String> declaredClasses;
@@ -57,16 +58,27 @@ public class JmmSymbolTableBuilder {
 
     private SymbolTableBuilderResult buildInternal() {
 
+        // New additions
+        // Import
+        var importDecls = root.getChildren(IMPORT_DECL); //.getFirst().get(JmmAttributes.IMPORT_DECLARATION.PATH);
+        for (var importNode : importDecls) {
+            var pathList = importNode.getObjectAsList("path", String.class);
+            var fullImport = String.join(".", pathList);
+            if (!imports.contains(fullImport)) { this.imports.add(fullImport); }
+        }
+        
 
+        // Given code
         var packageDecl = root.getChildren(PACKAGE_DECL).getFirst();
         var packagePathList = packageDecl.getObjectAsList("path", String.class);
         var packagePath = String.join(".", packagePathList);
+
 
         var classDecl = root.getObject("classNode", JmmNode.class);
         SpecsCheck.checkArgument(CLASS_DECL.check(classDecl), () -> "Expected a class declaration: " + classDecl);
 
         this.className = classDecl.get("name");
-        var fullyQualifiedName = packagePath + "." + className;
+        this.fullyQualifiedName = packagePath + "." + className;
 
         // Check if className is available
         if (declaredClasses.containsKey(className)) {
@@ -78,7 +90,17 @@ public class JmmSymbolTableBuilder {
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, null, fields, methods, importer);
+        // Including expands and defaulting to Object
+        var superClassName = classDecl.getOptional("parent").orElse("Object");
+
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
+
+        // Uncommenting displays the SYMBOL TABLE
+        //System.out.println("\n========================================");
+        //System.out.println(" SYMBOL TABLE FOR: " + className);
+        //System.out.println("========================================");
+        //System.out.println(symbolTable.print());
+        //System.out.println("========================================\n");
 
         return new SymbolTableBuilderResult(symbolTable, reports);
     }
@@ -91,10 +113,11 @@ public class JmmSymbolTableBuilder {
 
     private Symbol buildField(JmmNode varDecl) {
         var fieldName = varDecl.get(JmmAttributes.VAR_DECL.NAME);
+        var typeNode = varDecl.getChildren().getFirst();
+        var type = TypeUtils.convertType(typeNode,imports,this.fullyQualifiedName);
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildField(): Assuming return type of method is always int, and always has a single int parameter, needs to be expanded");
-        var type = TypeUtils.intType();
         return new Symbol(type, fieldName);
+
     }
 
     private List<MethodSymbol> buildMethods(JmmNode classDecl) {
@@ -105,21 +128,60 @@ public class JmmSymbolTableBuilder {
 
     }
 
+    // The validations inside this are for method scope only
     private MethodSymbol buildMethod(JmmNode method) {
         var methodName = method.get("name");
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildMethod(): Assuming return type of method is always int, and always has a single int parameter, needs to be expanded");
-        var returnType = TypeUtils.intType();
+        //System.out.println("\n------buildMethod------\n");
+        //System.out.println(method);
+        //System.out.println(methodName);
+        //System.out.println("\n------End------\n");
+
+        var typeNode = method.getChildren().getFirst();
+        var returnType = TypeUtils.convertType(typeNode,imports,this.fullyQualifiedName);
 
 
-        var params = List.of(new Symbol(TypeUtils.intType(), method.getChildren(PARAM).getFirst().get(JmmAttributes.PARAM.NAME)));
+        // 1. Build and validate parameters
+        var params = new ArrayList<Symbol>();
+        var paramNames = new HashSet<String>();
 
-        System.out.println("[TODO] JmmSymbolTableBuilder.buildMethod(): Assuming all VarDecls are ints, needs to be expanded");
-        var locals = method.getChildren(VAR_DECL).stream()
-                .map(varDecl -> new Symbol(TypeUtils.intType(), varDecl.get(JmmAttributes.VAR_DECL.NAME)))
-                .toList();
+        for (var paramNode : method.getChildren(PARAM)) {
+            var paramName = paramNode.get("name");
 
-        var visibility =  Visibility.PUBLIC;
+            // .add() returns false if the name is already in the set!
+            if (!paramNames.add(paramName)) {
+                reports.add(newError(method, "Duplicate parameter name: " + paramName));
+            }
+
+            var paramTypeNode = paramNode.getChildren().getFirst();
+            var paramType = TypeUtils.convertType(paramTypeNode,imports,this.fullyQualifiedName);
+            params.add(new Symbol(paramType, paramName));
+        }
+
+        // 2. Build and validate local variables
+        var locals = new ArrayList<Symbol>();
+        var localNames = new HashSet<String>();
+
+        for (var varDecl : method.getChildren(VAR_DECL)) {
+            var varName = varDecl.get("name");
+
+            // Check against parameters, and check/add to localNames
+            if (paramNames.contains(varName) || !localNames.add(varName)) {
+                reports.add(newError(method, "Duplicate local variable name: " + varName));
+            }
+
+            var varTypeNode = varDecl.getChildren().getFirst();
+            var varType = TypeUtils.convertType(varTypeNode,imports,this.fullyQualifiedName);
+            locals.add(new Symbol(varType, varName));
+        }
+
+        var visibility = Visibility.PUBLIC;
+        if (method.getOptional("visibility").isPresent()) {
+            String visStr = method.get("visibility");
+            if (visStr.equals("private")) visibility = Visibility.PRIVATE;
+            else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
+        }
+
         var isStatic = method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
         return new MethodSymbol(methodName, returnType, params, locals, isStatic, visibility);
     }
