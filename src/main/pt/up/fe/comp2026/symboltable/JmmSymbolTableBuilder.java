@@ -95,7 +95,7 @@ public class JmmSymbolTableBuilder {
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
-        // 👇 Uncommenting displays the  SYMBOL TABLE 👇
+        // Uncommenting displays the SYMBOL TABLE
         //System.out.println("\n========================================");
         //System.out.println(" SYMBOL TABLE FOR: " + className);
         //System.out.println("========================================");
@@ -176,11 +176,11 @@ public class JmmSymbolTableBuilder {
         }
 
         var visibility = Visibility.PUBLIC;
-            if (method.getOptional("visibility").isPresent()) {
-                String visStr = method.get("visibility");
-                if (visStr.equals("private")) visibility = Visibility.PRIVATE;
-                else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
-            }
+        if (method.getOptional("visibility").isPresent()) {
+            String visStr = method.get("visibility");
+            if (visStr.equals("private")) visibility = Visibility.PRIVATE;
+            else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
+        }
 
         var isStatic = method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
         return new MethodSymbol(methodName, returnType, params, locals, isStatic, visibility);
