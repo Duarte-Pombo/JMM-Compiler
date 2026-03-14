@@ -66,4 +66,43 @@ public class MySymbolTableTest extends JmmTestEnv {
         assertEquals("main parameter should be named ${expected}", "args", main.parameters().getFirst().name());
         assertTrue("main parameter type should be an array", main.parameters().getFirst().type().isArray());
     }
+
+    @Test
+    public void testLocalVariablesAreCollectedInComputeFactorial() {
+        var st = symbolTable("Factorial.jmm", false).getSymbolTable();
+        var computeOpt = st.getMethod(Signature.of("computeFactorial", List.of(JmmPrimitiveType.INT)));
+
+        assertTrue("computeFactorial(int) should exist", computeOpt.isPresent());
+        var compute = computeOpt.orElseThrow();
+        assertEquals("computeFactorial should have one local variable", 1, compute.localVariables().size());
+        assertTrue("computeFactorial should contain local variable num_aux", compute.getLocalVariable("num_aux").isPresent());
+        assertEquals("num_aux should have type ${expected}",
+                JmmPrimitiveType.INT, compute.getLocalVariable("num_aux").orElseThrow().type());
+    }
+
+    @Test
+    public void testMethodWithoutLocalsHasEmptyLocalVariables() {
+        var st = symbolTable("Factorial.jmm", false).getSymbolTable();
+        var mainMethods = st.getMethods("main");
+
+        assertEquals("Expected exactly one main method", 1, mainMethods.size());
+        var main = mainMethods.getFirst();
+        assertEquals("main should have no local variables", 0, main.localVariables().size());
+    }
+
+    @Test
+    public void testLocalVariablesSupportDifferentTypes() {
+        var st = symbolTable("LocalVarsTypes.jmm", false).getSymbolTable();
+        var methodOpt = st.getMethod(Signature.of("foo", List.of()));
+
+        assertTrue("foo() should exist", methodOpt.isPresent());
+        var foo = methodOpt.orElseThrow();
+        assertEquals("foo should have four local variables", 4, foo.localVariables().size());
+        assertEquals("localInt should have type ${expected}",
+                JmmPrimitiveType.INT, foo.getLocalVariable("localInt").orElseThrow().type());
+        assertEquals("localBool should have type ${expected}",
+                JmmPrimitiveType.BOOLEAN, foo.getLocalVariable("localBool").orElseThrow().type());
+        assertTrue("localObj should be a class type", foo.getLocalVariable("localObj").orElseThrow().type().isClass());
+        assertTrue("localArray should be an array type", foo.getLocalVariable("localArray").orElseThrow().type().isArray());
+    }
 }
