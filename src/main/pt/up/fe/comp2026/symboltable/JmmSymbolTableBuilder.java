@@ -90,8 +90,10 @@ public class JmmSymbolTableBuilder {
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
 
-        // Including expands and defaulting to Object
-        var superClassName = classDecl.getOptional("parent").orElse("Object");
+        // Resolve imported superclasses to their fully qualified name and default to Object
+        var superClassName = classDecl.getOptional("parent")
+                .map(this::resolveQualifiedClassName)
+                .orElse("Object");
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
@@ -175,10 +177,11 @@ public class JmmSymbolTableBuilder {
             locals.add(new Symbol(varType, varName));
         }
 
-        var visibility = Visibility.PUBLIC;
+        var visibility = Visibility.PACKAGE_PROTECTED;
         if (method.getOptional("visibility").isPresent()) {
             String visStr = method.get("visibility");
-            if (visStr.equals("private")) visibility = Visibility.PRIVATE;
+            if (visStr.equals("public")) visibility = Visibility.PUBLIC;
+            else if (visStr.equals("private")) visibility = Visibility.PRIVATE;
             else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
         }
 
@@ -186,5 +189,11 @@ public class JmmSymbolTableBuilder {
         return new MethodSymbol(methodName, returnType, params, locals, isStatic, visibility);
     }
 
+    private String resolveQualifiedClassName(String className) {
+        return imports.stream()
+                .filter(importName -> importName.equals(className) || importName.endsWith("." + className))
+                .findFirst()
+                .orElse(className);
+    }
 
 }
