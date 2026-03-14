@@ -11,6 +11,31 @@ import java.util.List;
 public class MySymbolTableTest extends JmmTestEnv {
     private static final String BASE_PATH = "core/semantics/symboltable/";
     private static final String RESOURCES_LOCATION = "test";
+    private static final String GENERAL_SYMBOL_TABLE_SNIPPET = """
+            package x;
+            import util.io;
+            class FullSymbolTable {
+                int fieldInt;
+                boolean fieldBool;
+                io fieldIo;
+                int[] fieldArr;
+
+                public int m1(int a, boolean b, io c) {
+                    int x;
+                    boolean y;
+                    io z;
+                    return 0;
+                }
+
+                public io m2() {
+                    io localIo;
+                    return localIo;
+                }
+
+                public static void main(String[] args) {
+                    int n;
+                }
+            }""";
 
     public MySymbolTableTest() {
         super(BASE_PATH, RESOURCES_LOCATION);
@@ -242,5 +267,61 @@ public class MySymbolTableTest extends JmmTestEnv {
         var numsReturnOpt = st.getReturnType("nums");
         assertTrue("nums return type should exist", numsReturnOpt.isPresent());
         assertTrue("nums return type should be an array type", numsReturnOpt.orElseThrow().isArray());
+    }
+
+    @Test
+    public void testGeneralSymbolTableStructureCoverage() {
+        var st = (JmmSymbolTable) symbolTableFromSnippet(GENERAL_SYMBOL_TABLE_SNIPPET, false).getSymbolTable();
+
+        assertEquals("Expected one import", 1, st.getImports().size());
+        assertEquals("Imported io should resolve to util.io", "util.io", st.getImportedFullyQualifiedName("io").orElseThrow());
+
+        assertEquals("Class name should be ${expected}", "FullSymbolTable", st.getClassName());
+        assertEquals("Class fully qualified name should be ${expected}", "x.FullSymbolTable", st.getFullyQualifiedName());
+
+        assertEquals("Expected four fields", 4, st.getFields().size());
+        assertEquals("Expected one m1 method", 1, st.getMethods("m1").size());
+        assertEquals("Expected one m2 method", 1, st.getMethods("m2").size());
+        assertEquals("Expected one main method", 1, st.getMethods("main").size());
+    }
+
+    @Test
+    public void testGeneralSymbolTableTypesCoverage() {
+        var st = (JmmSymbolTable) symbolTableFromSnippet(GENERAL_SYMBOL_TABLE_SNIPPET, false).getSymbolTable();
+
+        assertEquals("fieldInt type should be ${expected}", JmmPrimitiveType.INT, st.getField("fieldInt").orElseThrow().type());
+        assertEquals("fieldBool type should be ${expected}", JmmPrimitiveType.BOOLEAN, st.getField("fieldBool").orElseThrow().type());
+        assertTrue("fieldIo should be a class type", st.getField("fieldIo").orElseThrow().type().isClass());
+        assertTrue("fieldArr should be an array type", st.getField("fieldArr").orElseThrow().type().isArray());
+
+        for (var methodName : List.of("m1", "m2", "main")) {
+            assertTrue("Method should have parameter entry: " + methodName, st.getParameters(methodName).isPresent());
+            assertTrue("Method should have return type entry: " + methodName, st.getReturnType(methodName).isPresent());
+            assertTrue("Method should have locals entry: " + methodName, st.getLocalVariables(methodName).isPresent());
+        }
+
+        var m1Params = st.getParameters("m1").orElseThrow();
+        assertEquals("m1 should have 3 parameters", 3, m1Params.size());
+        assertEquals("m1 first parameter should be int", JmmPrimitiveType.INT, m1Params.get(0).type());
+        assertEquals("m1 second parameter should be boolean", JmmPrimitiveType.BOOLEAN, m1Params.get(1).type());
+        assertTrue("m1 third parameter should be class type", m1Params.get(2).type().isClass());
+
+        assertEquals("m1 return type should be int", JmmPrimitiveType.INT, st.getReturnType("m1").orElseThrow());
+        assertTrue("m2 return type should be class type", st.getReturnType("m2").orElseThrow().isClass());
+        assertEquals("main return type should be void", JmmPrimitiveType.VOID, st.getReturnType("main").orElseThrow());
+
+        var m1Locals = st.getLocalVariables("m1").orElseThrow();
+        assertEquals("m1 should have 3 local variables", 3, m1Locals.size());
+        assertEquals("m1 first local should be int", JmmPrimitiveType.INT, m1Locals.get(0).type());
+        assertEquals("m1 second local should be boolean", JmmPrimitiveType.BOOLEAN, m1Locals.get(1).type());
+        assertTrue("m1 third local should be class type", m1Locals.get(2).type().isClass());
+
+        var m2Locals = st.getLocalVariables("m2").orElseThrow();
+        assertEquals("m2 should have 1 local variable", 1, m2Locals.size());
+        assertTrue("m2 local should be class type", m2Locals.getFirst().type().isClass());
+
+        var mainLocals = st.getLocalVariables("main").orElseThrow();
+        assertEquals("main should have 1 local variable", 1, mainLocals.size());
+        assertEquals("main local should be int", JmmPrimitiveType.INT, mainLocals.getFirst().type());
     }
 }
