@@ -89,6 +89,7 @@ public class JmmSymbolTableBuilder {
 
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
+        var returnType = buildReturnTypes(classDecl);
         var params = buildParams(classDecl);
         var locals = buildLocals(classDecl);
 
@@ -97,7 +98,7 @@ public class JmmSymbolTableBuilder {
                 .map(this::resolveQualifiedClassName)
                 .orElse("Object");
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, params, locals, importer);
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, returnType, params, locals, importer);
 
         // Uncommenting displays the SYMBOL TABLE
         //System.out.println("\n========================================");
@@ -234,5 +235,35 @@ public class JmmSymbolTableBuilder {
         var name = param.get(JmmAttributes.PARAM.NAME);
         var type = TypeUtils.convertType(param.getChildren().getFirst(), imports, this.fullyQualifiedName);
         return new Symbol(type, name);
+    }
+
+    private Map<String, JmmType> buildReturnTypes(JmmNode classDecl) {
+        Map<String, JmmType> returnTypes = new HashMap<>();
+
+        classDecl.getChildren(METHOD_DECL)
+                .forEach(method ->
+                        returnTypes.put(
+                                method.get("name"),
+                                buildReturnType(method)
+                        )
+                );
+
+        return returnTypes;
+    }
+
+    private JmmType buildReturnType(JmmNode methodDecl) {
+        SpecsCheck.checkArgument(METHOD_DECL.check(methodDecl), () -> "Expected a method declaration: " + methodDecl);
+
+        if (GENERAL_METHOD_DECL.check(methodDecl)) {
+            var typeNode = methodDecl.getObject(JmmAttributes.GENERAL_METHOD_DECL.TYPE_NODE, JmmNode.class);
+            return TypeUtils.convertType(typeNode, imports, this.fullyQualifiedName);
+        }
+
+        if (MAIN_METHOD_DECL.check(methodDecl)) {
+            return JmmPrimitiveType.VOID;
+        }
+
+        var typeNode = methodDecl.getChildren().getFirst();
+        return TypeUtils.convertType(typeNode, imports, this.fullyQualifiedName);
     }
 }

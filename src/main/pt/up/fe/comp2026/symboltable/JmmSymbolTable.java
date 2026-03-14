@@ -5,6 +5,7 @@ import pt.up.fe.comp.jmm.analysis.table.Signature;
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.reflection.Importer;
+import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.specs.util.SpecsCheck;
 
 import java.util.*;
@@ -17,6 +18,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     private final String superQualifiedName;
     private final Map<String, Symbol> fields;
     private final Map<Signature, MethodSymbol> methods;
+    private final Map<String, JmmType> returnTypes;
     private final Map<String, List<Symbol>> params;
     private final Map<String, List<Symbol>> locals;
 
@@ -28,17 +30,17 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     public JmmSymbolTable(List<String> imports, String classQualifiedName,
                           String superQualifiedNameName, List<Symbol> fields,
                           List<MethodSymbol> methods,
+                          Map<String, JmmType> returnTypes,
                           Map<String, List<Symbol>> params,
                           Map<String, List<Symbol>> locals,
                           Importer importer) {
-//                          Map<String, Type> returnTypes) {
         super(importer);
         this.imports = imports;
         this.classQualifiedName = classQualifiedName;
         this.superQualifiedName = superQualifiedNameName;
         this.fields = fields.stream().collect(Collectors.toMap(Symbol::name, s -> s));
         this.methods = methods.stream().collect(Collectors.toMap(MethodSymbol::signature, m -> m));
-//        this.returnTypes = returnTypes;
+        this.returnTypes = returnTypes;
         this.params = params;
         this.locals = locals;
         this.importNames = calcImportNames(imports);
@@ -171,6 +173,10 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     public Optional<List<Symbol>> getLocalVariables(String methodSignature) {
         return Optional.ofNullable(locals.get(methodSignature));
+    }
+
+    public Optional<JmmType> getReturnType(String methodSignature) {
+        return Optional.ofNullable(returnTypes.get(methodSignature));
     }
 
 }
