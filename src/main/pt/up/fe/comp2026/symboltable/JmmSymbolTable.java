@@ -17,7 +17,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     private final String superQualifiedName;
     private final Map<String, Symbol> fields;
     private final Map<Signature, MethodSymbol> methods;
-
+    private final Map<String, List<Symbol>> locals;
 
     // TODO: Check if some uses of importNames can be replaced with getDeclaredClasses()
     private final Set<String> importNames;
@@ -27,10 +27,10 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     public JmmSymbolTable(List<String> imports, String classQualifiedName,
                           String superQualifiedNameName, List<Symbol> fields,
                           List<MethodSymbol> methods,
+                          Map<String, List<Symbol>> locals,
                           Importer importer) {
 //                          Map<String, Type> returnTypes,
-//                          Map<String, List<Symbol>> params,
-//                          Map<String, List<Symbol>> locals) {
+//                          Map<String, List<Symbol>> params) {
         super(importer);
         this.imports = imports;
         this.classQualifiedName = classQualifiedName;
@@ -39,7 +39,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
         this.methods = methods.stream().collect(Collectors.toMap(MethodSymbol::signature, m -> m));
 //        this.returnTypes = returnTypes;
 //        this.params = params;
-//        this.locals = locals;
+        this.locals = locals;
         this.importNames = calcImportNames(imports);
         this.attrs = new HashMap<>();
     }
@@ -162,6 +162,10 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     public Optional<SymbolTable> getImplicitImport(String className) {
         return this.importer.tryImplicitImport(className);
+    }
+
+    public Optional<List<Symbol>> getLocalVariables(String methodSignature) {
+        return Optional.ofNullable(locals.get(methodSignature));
     }
 
 }

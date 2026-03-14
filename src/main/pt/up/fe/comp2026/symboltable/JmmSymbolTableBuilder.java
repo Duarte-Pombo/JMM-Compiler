@@ -89,13 +89,14 @@ public class JmmSymbolTableBuilder {
 
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
+        var locals = buildLocals(classDecl);
 
         // Resolve imported superclasses to their fully qualified name and default to Object
         var superClassName = classDecl.getOptional("parent")
                 .map(this::resolveQualifiedClassName)
                 .orElse("Object");
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, locals, importer);
 
         // Uncommenting displays the SYMBOL TABLE
         //System.out.println("\n========================================");
@@ -196,4 +197,22 @@ public class JmmSymbolTableBuilder {
                 .orElse(className);
     }
 
+    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
+        Map<String, List<Symbol>> locals = new HashMap<>();
+        classDecl.getChildren(METHOD_DECL)
+                .forEach(method ->
+                        locals.put(
+                                method.get("name"),
+                                method.getChildren(VAR_DECL).stream().map(this::buildLocal).toList()
+                        )
+                );
+
+        return locals;
+    }
+
+    private Symbol buildLocal(JmmNode varDecl) {
+        var name = varDecl.get(JmmAttributes.VAR_DECL.NAME);
+        var type = TypeUtils.convertType(varDecl.getChildren().getFirst(), imports, this.fullyQualifiedName);
+        return new Symbol(type, name);
+    }
 }
