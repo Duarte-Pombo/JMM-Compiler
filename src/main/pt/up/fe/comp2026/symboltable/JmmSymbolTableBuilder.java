@@ -90,8 +90,10 @@ public class JmmSymbolTableBuilder {
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
 
-        // Including expands and defaulting to Object
-        var superClassName = classDecl.getOptional("parent").orElse("Object");
+        // Resolve imported superclasses to their fully qualified name and default to Object
+        var superClassName = classDecl.getOptional("parent")
+                .map(this::resolveQualifiedClassName)
+                .orElse("Object");
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
 
@@ -186,5 +188,11 @@ public class JmmSymbolTableBuilder {
         return new MethodSymbol(methodName, returnType, params, locals, isStatic, visibility);
     }
 
+    private String resolveQualifiedClassName(String className) {
+        return imports.stream()
+                .filter(importName -> importName.equals(className) || importName.endsWith("." + className))
+                .findFirst()
+                .orElse(className);
+    }
 
 }
