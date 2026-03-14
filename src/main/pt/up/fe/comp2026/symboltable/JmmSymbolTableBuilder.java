@@ -177,10 +177,11 @@ public class JmmSymbolTableBuilder {
             locals.add(new Symbol(varType, varName));
         }
 
-        var visibility = Visibility.PUBLIC;
+        var visibility = Visibility.PACKAGE_PROTECTED;
         if (method.getOptional("visibility").isPresent()) {
             String visStr = method.get("visibility");
-            if (visStr.equals("private")) visibility = Visibility.PRIVATE;
+            if (visStr.equals("public")) visibility = Visibility.PUBLIC;
+            else if (visStr.equals("private")) visibility = Visibility.PRIVATE;
             else if (visStr.equals("protected")) visibility = Visibility.PROTECTED;
         }
 
