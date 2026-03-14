@@ -1,0 +1,13 @@
+package core.semantics.symboltable;
+
+import util.io;
+
+class LocalVarsTypes {
+    public int foo() {
+        int localInt;
+        boolean localBool;
+        io localObj;
+        int[] localArray;
+        return 0;
+    }
+}

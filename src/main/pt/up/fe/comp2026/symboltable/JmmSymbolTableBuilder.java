@@ -89,13 +89,16 @@ public class JmmSymbolTableBuilder {
 
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
+        var returnType = buildReturnTypes(classDecl);
+        var params = buildParams(classDecl);
+        var locals = buildLocals(classDecl);
 
         // Resolve imported superclasses to their fully qualified name and default to Object
         var superClassName = classDecl.getOptional("parent")
                 .map(this::resolveQualifiedClassName)
                 .orElse("Object");
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, importer);
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, returnType, params, locals, importer);
 
         // Uncommenting displays the SYMBOL TABLE
         //System.out.println("\n========================================");
@@ -196,4 +199,71 @@ public class JmmSymbolTableBuilder {
                 .orElse(className);
     }
 
+    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
+        Map<String, List<Symbol>> locals = new HashMap<>();
+        classDecl.getChildren(METHOD_DECL)
+                .forEach(method ->
+                        locals.put(
+                                method.get("name"),
+                                method.getChildren(VAR_DECL).stream().map(this::buildLocal).toList()
+                        )
+                );
+
+        return locals;
+    }
+
+    private Symbol buildLocal(JmmNode varDecl) {
+        var name = varDecl.get(JmmAttributes.VAR_DECL.NAME);
+        var type = TypeUtils.convertType(varDecl.getChildren().getFirst(), imports, this.fullyQualifiedName);
+        return new Symbol(type, name);
+    }
+
+    private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
+        Map<String, List<Symbol>> params = new HashMap<>();
+        classDecl.getChildren(METHOD_DECL)
+                .forEach(method ->
+                        params.put(
+                                method.get("name"),
+                                method.getChildren(PARAM).stream().map(this::buildParam).toList()
+                        )
+                );
+
+        return params;
+    }
+
+    private Symbol buildParam(JmmNode param) {
+        var name = param.get(JmmAttributes.PARAM.NAME);
+        var type = TypeUtils.convertType(param.getChildren().getFirst(), imports, this.fullyQualifiedName);
+        return new Symbol(type, name);
+    }
+
+    private Map<String, JmmType> buildReturnTypes(JmmNode classDecl) {
+        Map<String, JmmType> returnTypes = new HashMap<>();
+
+        classDecl.getChildren(METHOD_DECL)
+                .forEach(method ->
+                        returnTypes.put(
+                                method.get("name"),
+                                buildReturnType(method)
+                        )
+                );
+
+        return returnTypes;
+    }
+
+    private JmmType buildReturnType(JmmNode methodDecl) {
+        SpecsCheck.checkArgument(METHOD_DECL.check(methodDecl), () -> "Expected a method declaration: " + methodDecl);
+
+        if (GENERAL_METHOD_DECL.check(methodDecl)) {
+            var typeNode = methodDecl.getObject(JmmAttributes.GENERAL_METHOD_DECL.TYPE_NODE, JmmNode.class);
+            return TypeUtils.convertType(typeNode, imports, this.fullyQualifiedName);
+        }
+
+        if (MAIN_METHOD_DECL.check(methodDecl)) {
+            return JmmPrimitiveType.VOID;
+        }
+
+        var typeNode = methodDecl.getChildren().getFirst();
+        return TypeUtils.convertType(typeNode, imports, this.fullyQualifiedName);
+    }
 }
