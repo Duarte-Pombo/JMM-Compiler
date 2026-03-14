@@ -209,4 +209,38 @@ public class MySymbolTableTest extends JmmTestEnv {
 
         assertTrue("Missing methods should not exist in locals map", st.getLocalVariables("doesNotExist").isEmpty());
     }
+
+    @Test
+    public void testGetReturnTypeSupportsPrimitiveVoidAndMissingMethod() {
+        var st = (JmmSymbolTable) symbolTable("Factorial.jmm", false).getSymbolTable();
+
+        var computeReturnOpt = st.getReturnType("computeFactorial");
+        assertTrue("computeFactorial return type should exist", computeReturnOpt.isPresent());
+        assertEquals("computeFactorial return type should be ${expected}", JmmPrimitiveType.INT, computeReturnOpt.orElseThrow());
+
+        var mainReturnOpt = st.getReturnType("main");
+        assertTrue("main return type should exist", mainReturnOpt.isPresent());
+        assertEquals("main return type should be ${expected}", JmmPrimitiveType.VOID, mainReturnOpt.orElseThrow());
+
+        assertTrue("Missing methods should not exist in return types map", st.getReturnType("doesNotExist").isEmpty());
+    }
+
+    @Test
+    public void testGetReturnTypeSupportsClassAndArray() {
+        var semantics = symbolTableFromSnippet("""
+                package x;
+                class A {
+                    public A self() { return this; }
+                    public int[] nums() { return new int[1]; }
+                }""", false);
+        var st = (JmmSymbolTable) semantics.getSymbolTable();
+
+        var selfReturnOpt = st.getReturnType("self");
+        assertTrue("self return type should exist", selfReturnOpt.isPresent());
+        assertTrue("self return type should be a class type", selfReturnOpt.orElseThrow().isClass());
+
+        var numsReturnOpt = st.getReturnType("nums");
+        assertTrue("nums return type should exist", numsReturnOpt.isPresent());
+        assertTrue("nums return type should be an array type", numsReturnOpt.orElseThrow().isArray());
+    }
 }
