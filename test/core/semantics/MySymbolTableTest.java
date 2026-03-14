@@ -177,4 +177,36 @@ public class MySymbolTableTest extends JmmTestEnv {
         assertEquals("Second parameter type should be ${expected}", JmmPrimitiveType.BOOLEAN, manyParams.get(1).type());
         assertTrue("Third parameter should be a class type", manyParams.get(2).type().isClass());
     }
+
+    @Test
+    public void testGetLocalVariablesCollectsMethodLocals() {
+        var st = (JmmSymbolTable) symbolTable("Factorial.jmm", false).getSymbolTable();
+
+        var computeLocalsOpt = st.getLocalVariables("computeFactorial");
+        assertTrue("computeFactorial entry should exist in locals map", computeLocalsOpt.isPresent());
+        var computeLocals = computeLocalsOpt.orElseThrow();
+        assertEquals("computeFactorial should have one local variable", 1, computeLocals.size());
+        assertEquals("Local variable name should be ${expected}", "num_aux", computeLocals.getFirst().name());
+        assertEquals("Local variable type should be ${expected}", JmmPrimitiveType.INT, computeLocals.getFirst().type());
+
+        var mainLocalsOpt = st.getLocalVariables("main");
+        assertTrue("main entry should exist in locals map", mainLocalsOpt.isPresent());
+        assertEquals("main should have no local variables", 0, mainLocalsOpt.orElseThrow().size());
+    }
+
+    @Test
+    public void testGetLocalVariablesSupportsDifferentTypesAndMissingMethod() {
+        var st = (JmmSymbolTable) symbolTable("LocalVarsTypes.jmm", false).getSymbolTable();
+
+        var fooLocalsOpt = st.getLocalVariables("foo");
+        assertTrue("foo entry should exist in locals map", fooLocalsOpt.isPresent());
+        var fooLocals = fooLocalsOpt.orElseThrow();
+        assertEquals("foo should have four local variables", 4, fooLocals.size());
+        assertEquals("First local type should be ${expected}", JmmPrimitiveType.INT, fooLocals.get(0).type());
+        assertEquals("Second local type should be ${expected}", JmmPrimitiveType.BOOLEAN, fooLocals.get(1).type());
+        assertTrue("Third local should be a class type", fooLocals.get(2).type().isClass());
+        assertTrue("Fourth local should be an array type", fooLocals.get(3).type().isArray());
+
+        assertTrue("Missing methods should not exist in locals map", st.getLocalVariables("doesNotExist").isEmpty());
+    }
 }
