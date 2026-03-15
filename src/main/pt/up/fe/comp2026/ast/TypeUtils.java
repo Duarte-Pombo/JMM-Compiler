@@ -243,8 +243,47 @@ public class TypeUtils {
     }
 
     private JmmType getVarExprType(JmmNode varRefExpr) {
-        System.out.println("[TODO] TypeUtils.getVarExprType(): Implement type inference for VarExpr. You will need to determine in which method the VarRef is and use the symbol table");
-        return intType();
+        VAR_REF_EXPR.checkOrThrow(varRefExpr);
+
+        var varName = varRefExpr.get("name");
+
+        var methodDecl = varRefExpr.getAncestor(METHOD_DECL)
+                .orElseThrow(() -> new RuntimeException("VarRef '" + varName + "' outside a method scope"));
+
+        var methodSignature = getMethodDeclSignature(methodDecl);
+        var method = table.getMethod(methodSignature)
+                .orElseThrow(() -> new RuntimeException("Could not resolve method for signature " + methodSignature));
+
+        var localVarType = method.getLocalVariable(varName).map(Symbol::type);
+        if (localVarType.isPresent()) {
+            return localVarType.get();
+        }
+
+        var paramType = method.getParameter(varName).map(Symbol::type);
+        if (paramType.isPresent()) {
+            return paramType.get();
+        }
+
+        var fieldType = table.getField(varName).map(Symbol::type);
+        if (fieldType.isPresent()) {
+            return fieldType.get();
+        }
+
+        if (varName.equals(table.getClassName()) || varName.equals(table.getFullyQualifiedName())) {
+            return new JmmClassType(table.getFullyQualifiedName(), false, true);
+        }
+
+        var importedFqName = table.getImportedFullyQualifiedName(varName);
+        if (importedFqName.isPresent()) {
+            return new JmmClassType(importedFqName.get(), true, true);
+        }
+
+        var implicitImport = table.getImplicitImport(varName);
+        if (implicitImport.isPresent()) {
+            return new JmmClassType(implicitImport.get().getFullyQualifiedName(), true, true);
+        }
+
+        throw new RuntimeException("Variable '" + varName + "' is not defined in current scope");
     }
 
 }
