@@ -109,7 +109,7 @@ public class TypeUtils {
             case PARENTHESES_EXPR -> getExprType(expr.getChild(0));
             // case ARRAY_ACCESS ->
             // case METHOD_CALL -> getMethodCallType(expr);
-            // case IMPLICIT_CALL ->
+            case IMPLICIT_CALL -> getImplicitCallType(expr);
             case FIELD_ACCESS -> getFieldAccessType(expr);
             case NEGATION_EXPR -> booleanType();
             case UNARY_EXPR -> intType();
@@ -125,6 +125,18 @@ public class TypeUtils {
             default ->
                     throw new UnsupportedOperationException("Can't compute type for expression kind '" + expr.getKind() + "'");
         };
+    }
+
+    private JmmType getImplicitCallType(JmmNode implicitCallExpr) {
+        IMPLICIT_CALL.checkOrThrow(implicitCallExpr);
+
+        var methodName = implicitCallExpr.get("name");
+        var argTypes = implicitCallExpr.getChildren().stream().map(this::getExprType).toList();
+        var signature = Signature.of(methodName, argTypes);
+
+        return table.getMethod(signature)
+                    .map(MethodSymbol::returnType)
+                    .orElseThrow(() -> new RuntimeException("Method not found: " + signature));
     }
 
     private JmmType getFieldAccessType(JmmNode expr) {
