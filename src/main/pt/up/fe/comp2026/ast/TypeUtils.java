@@ -121,7 +121,7 @@ public class TypeUtils {
             case INTEGER_LITERAL -> intType();
             case BOOLEAN_LITERAL -> booleanType();
             case VAR_REF_EXPR -> getVarExprType(expr);
-            // case THIS -> getThisType(expr);
+            case THIS -> getThisType(expr);
             default ->
                     throw new UnsupportedOperationException("Can't compute type for expression kind '" + expr.getKind() + "'");
         };
@@ -178,6 +178,11 @@ public class TypeUtils {
         }
 
         return new JmmClassType(className, false, false);
+    }
+
+    private JmmType getThisType(JmmNode thisExpr) {
+        THIS.checkOrThrow(thisExpr);
+        return new JmmClassType(table.getFullyQualifiedName(), false, false);
     }
 
     public Signature getMethodDeclSignature(JmmNode methodDecl) {
