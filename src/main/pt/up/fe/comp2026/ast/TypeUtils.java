@@ -11,8 +11,6 @@ import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmClassType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
-import pt.up.fe.specs.util.SpecsCheck;
-import pt.up.fe.specs.util.exceptions.NotImplementedException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +106,7 @@ public class TypeUtils {
         return switch (expr.getKind()) {
             case PARENTHESES_EXPR -> getExprType(expr.getChild(0));
             // case ARRAY_ACCESS ->
-            // case METHOD_CALL -> getMethodCallType(expr);
+            case METHOD_CALL -> getMethodCallType(expr);
             case IMPLICIT_CALL -> getImplicitCallType(expr);
             case FIELD_ACCESS -> getFieldAccessType(expr);
             case NEGATION_EXPR -> booleanType();
@@ -125,6 +123,30 @@ public class TypeUtils {
             default ->
                     throw new UnsupportedOperationException("Can't compute type for expression kind '" + expr.getKind() + "'");
         };
+    }
+
+    private JmmType getMethodCallType(JmmNode methodCallExpr) {
+        METHOD_CALL.checkOrThrow(methodCallExpr);
+
+        var methodName = methodCallExpr.get("name");
+        var recvType = getExprType(methodCallExpr.getChild(0));
+
+        if (!recvType.isClass()) {
+            throw new RuntimeException("Method call receiver is not a class type: " + recvType);
+        }
+
+        var recvClass = recvType.asClass().fullyQualifiedName();
+        var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
+        var signature = Signature.of(methodName, argTypes);
+
+        var ownerTable = recvClass.equals(table.getFullyQualifiedName())
+                ? Optional.of(table)
+                : table.getImportedSymbolTable(recvClass);
+
+        return ownerTable
+                .flatMap(st -> st.getMethod(signature))
+                .map(MethodSymbol::returnType)
+                .orElseThrow(() -> new RuntimeException("Method '" + signature + "' not found in '" + recvClass + "'"));
     }
 
     private JmmType getImplicitCallType(JmmNode implicitCallExpr) {
