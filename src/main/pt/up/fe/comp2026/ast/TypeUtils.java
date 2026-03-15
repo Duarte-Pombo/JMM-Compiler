@@ -113,7 +113,7 @@ public class TypeUtils {
             case FIELD_ACCESS -> getFieldAccessType(expr);
             case NEGATION_EXPR -> booleanType();
             case UNARY_EXPR -> intType();
-            // case NEW_OBJECT -> getNewObjectType(expr);
+            case NEW_OBJECT -> getNewObjectType(expr);
             case NEW_ARRAY -> intType();
             case NEW_ARRAY_BY_EXTENSION -> intType();
             case BINARY_EXPR -> getBinExprType(expr);
@@ -151,6 +151,21 @@ public class TypeUtils {
         return ownerTable.flatMap(st -> st.getField(fieldName))
                 .map(Symbol::type)
                 .orElseThrow(() -> new RuntimeException("Field '" + fieldName + "' not in '" + recvClass + "'"));
+    }
+
+    private JmmType getNewObjectType(JmmNode newObjectExpr) {
+        var className = newObjectExpr.get("name");
+        var importedFqName = table.getImportedFullyQualifiedName(className);
+
+        if (importedFqName.isPresent()) {
+            return new JmmClassType(importedFqName.get(), true, false);
+        }
+
+        if (className.equals(table.getClassName()) || className.equals(table.getFullyQualifiedName())) {
+            return new JmmClassType(table.getFullyQualifiedName(), false, false);
+        }
+
+        return new JmmClassType(className, false, false);
     }
 
     public Signature getMethodDeclSignature(JmmNode methodDecl) {
