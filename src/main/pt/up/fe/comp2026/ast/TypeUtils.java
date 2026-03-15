@@ -105,9 +105,22 @@ public class TypeUtils {
      */
     public JmmType getExprType(JmmNode expr) {
         return switch (expr.getKind()) {
-            case INTEGER_LITERAL -> intType();
+            case PARENTHESES_EXPR -> getExprType(expr.getChild(0));
+            // case ARRAY_ACCESS ->
+            // case METHOD_CALL -> getMethodCallType(expr);
+            // case IMPLICIT_CALL ->
+            // case FIELD_ACCESS ->
+            case NEGATION_EXPR -> booleanType();
+            case UNARY_EXPR -> intType();
+            // case NEW_OBJECT -> getNewObjectType(expr);
+            case NEW_ARRAY -> intType();
+            case NEW_ARRAY_BY_EXTENSION -> intType();
             case BINARY_EXPR -> getBinExprType(expr);
+            // case ARRAY ->
+            case INTEGER_LITERAL -> intType();
+            case BOOLEAN_LITERAL -> booleanType();
             case VAR_REF_EXPR -> getVarExprType(expr);
+            // case THIS -> getThisType(expr);
             default ->
                     throw new UnsupportedOperationException("Can't compute type for expression kind '" + expr.getKind() + "'");
         };
