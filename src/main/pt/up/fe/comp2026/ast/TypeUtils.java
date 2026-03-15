@@ -40,6 +40,10 @@ public class TypeUtils {
         return JmmPrimitiveType.INT;
     }
 
+    public static JmmPrimitiveType booleanType() {
+        return JmmPrimitiveType.BOOLEAN;
+    }
+
     // Used by Opt
     public static JmmType convertType(JmmNode typeNode) {
         return convertType(typeNode, new ArrayList<>(), null);
@@ -138,7 +142,8 @@ public class TypeUtils {
         String operator = binaryExpr.get("op");
 
         return switch (operator) {
-            case "+", "*" -> intType();
+            case "+", "-", "*", "/", "%" -> intType();
+            case "&&", "||", "<=", ">=", "==", "!=", "<", ">" -> booleanType();
             default ->
                     throw new RuntimeException("Unknown operator '" + operator + "' of expression '" + binaryExpr + "'");
         };

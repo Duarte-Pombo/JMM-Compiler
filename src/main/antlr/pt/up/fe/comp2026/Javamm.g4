@@ -120,7 +120,7 @@ stmt
     | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
     | FOR OPEN_PARENTHESES 
         (initVar = ID EQUALS expr)? 
-        SEMI expr SEMI
+        SEMI expr? SEMI
         (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
         CLOSE_PARENTHESES stmt 
           #ForStmt
@@ -142,11 +142,11 @@ expr
     | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
     | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
-    | expr op= (PLUS | MINUS) expr #AdditiveExpr
-    | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
-    | expr op=(EQEQ | NOT_EQUAL) expr #EqualityExpr
-    | expr op= AND expr #AndExpr
-    | expr op= OR expr #OrExpr
+    | expr op= (PLUS | MINUS) expr #BinaryExpr
+    | expr op= (LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #BinaryExpr
+    | expr op= (EQEQ | NOT_EQUAL) expr #BinaryExpr
+    | expr op= AND expr #BinaryExpr
+    | expr op= OR expr #BinaryExpr
     | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
     | value=TRUE #BooleanLiteral
