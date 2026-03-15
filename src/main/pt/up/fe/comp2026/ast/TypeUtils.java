@@ -2,6 +2,7 @@ package pt.up.fe.comp2026.ast;
 
 import pt.up.fe.comp.jmm.analysis.table.MethodSymbol;
 import pt.up.fe.comp.jmm.analysis.table.Signature;
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType;
 import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
@@ -109,7 +110,7 @@ public class TypeUtils {
             // case ARRAY_ACCESS ->
             // case METHOD_CALL -> getMethodCallType(expr);
             // case IMPLICIT_CALL ->
-            // case FIELD_ACCESS ->
+            case FIELD_ACCESS -> getFieldAccessType(expr);
             case NEGATION_EXPR -> booleanType();
             case UNARY_EXPR -> intType();
             // case NEW_OBJECT -> getNewObjectType(expr);
@@ -126,6 +127,31 @@ public class TypeUtils {
         };
     }
 
+    private JmmType getFieldAccessType(JmmNode expr) {
+        var fieldName = expr.get("name");
+        var recvType = getExprType(expr.getChild(0));
+
+        if ("length".equals(fieldName)) {
+            if (!recvType.isArray()) {
+                throw new RuntimeException("Field " + fieldName + " is not an array");
+            }
+            return intType();
+        }
+
+        if (!recvType.isClass()) {
+            throw new RuntimeException("Access to a field not in a class" + recvType);
+        }
+
+        var recvClass = recvType.asClass().fullyQualifiedName();
+
+        var ownerTable = recvClass.equals(table.getFullyQualifiedName())
+                ? Optional.of(table)
+                : table.getImportedSymbolTable(recvClass);
+
+        return ownerTable.flatMap(st -> st.getField(fieldName))
+                .map(Symbol::type)
+                .orElseThrow(() -> new RuntimeException("Field '" + fieldName + "' not in '" + recvClass + "'"));
+    }
 
     public Signature getMethodDeclSignature(JmmNode methodDecl) {
         // Ensure given node is a MethodDecl
