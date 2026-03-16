@@ -105,15 +105,15 @@ public class TypeUtils {
     public JmmType getExprType(JmmNode expr) {
         return switch (expr.getKind()) {
             case PARENTHESES_EXPR -> getExprType(expr.getChild(0));
-            // case ARRAY_ACCESS ->
+            case ARRAY_ACCESS -> getArrayAccessType(expr);
             case METHOD_CALL -> getMethodCallType(expr);
             case IMPLICIT_CALL -> getImplicitCallType(expr);
             case FIELD_ACCESS -> getFieldAccessType(expr);
             case NEGATION_EXPR -> booleanType();
             case UNARY_EXPR -> intType();
             case NEW_OBJECT -> getNewObjectType(expr);
-            case NEW_ARRAY -> intType();
-            case NEW_ARRAY_BY_EXTENSION -> intType();
+            case NEW_ARRAY -> getNewArrayType(expr);
+            case NEW_ARRAY_BY_EXTENSION -> new JmmArrayType(intType(), 1);
             case BINARY_EXPR -> getBinExprType(expr);
             // case ARRAY ->
             case INTEGER_LITERAL -> intType();
@@ -123,6 +123,41 @@ public class TypeUtils {
             default ->
                     throw new UnsupportedOperationException("Can't compute type for expression kind '" + expr.getKind() + "'");
         };
+    }
+
+    private JmmType getArrayAccessType(JmmNode arrayAccessExpr) {
+    ARRAY_ACCESS.checkOrThrow(arrayAccessExpr);
+
+    var arrayType = getExprType(arrayAccessExpr.getChild(0));
+    var indexType = getExprType(arrayAccessExpr.getChild(1));
+
+    if (!arrayType.isArray()) {
+        throw new RuntimeException("Array access target is not an array: " + arrayType);
+    }
+
+    if (!indexType.equals(intType())) {
+        throw new RuntimeException("Array index must be int, got: " + indexType);
+    }
+
+    var typedArray = (JmmArrayType) arrayType;
+    int dims = typedArray.dimension();
+
+    return dims > 1
+            ? new JmmArrayType(typedArray.itemType(), dims - 1)
+            : typedArray.itemType();
+    }
+
+    private JmmType getNewArrayType(JmmNode newArrayExpr) {
+        NEW_ARRAY.checkOrThrow(newArrayExpr);
+
+        for (var sizeExpr : newArrayExpr.getChildren()) {
+            var sizeType = getExprType(sizeExpr);
+            if (!sizeType.equals(intType())) {
+                throw new RuntimeException("Array size must be int, got: " + sizeType);
+            }
+        }
+
+        return new JmmArrayType(intType(), newArrayExpr.getChildren().size());
     }
 
     private JmmType getMethodCallType(JmmNode methodCallExpr) {

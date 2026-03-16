@@ -139,7 +139,7 @@ expr
     | op= NOT expr #NegationExpr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
-    | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
+    | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ #NewArray
     | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
