@@ -89,9 +89,9 @@ param
     ;
 
 type
-    : val = INT (OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
-    | val = STRING (OPEN_BRACKET CLOSE_BRACKET)+ #StringArray 
-    | val = ID (OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
+    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
+    | val = STRING (dims += OPEN_BRACKET CLOSE_BRACKET)+ #StringArray
+    | val = ID (dims += OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
@@ -120,7 +120,7 @@ stmt
     | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
     | FOR OPEN_PARENTHESES 
         (initVar = ID EQUALS expr)? 
-        SEMI expr SEMI
+        SEMI expr? SEMI
         (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
         CLOSE_PARENTHESES stmt 
           #ForStmt
@@ -129,6 +129,9 @@ stmt
     | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
+
+arrayInit : OPEN_BRACES (arrayElem (COMMA arrayElem)*)? CLOSE_BRACES;
+arrayElem : expr | arrayInit;
 
 expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
@@ -139,14 +142,14 @@ expr
     | op= NOT expr #NegationExpr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
-    | NEW INT OPEN_BRACKET expr CLOSE_BRACKET #NewArray
-    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
+    | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ #NewArray
+    | NEW INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ arrayInit #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
-    | expr op= (PLUS | MINUS) expr #AdditiveExpr
-    | expr op=(LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #RelationalExpr
-    | expr op=(EQEQ | NOT_EQUAL) expr #EqualityExpr
-    | expr op= AND expr #AndExpr
-    | expr op= OR expr #OrExpr
+    | expr op= (PLUS | MINUS) expr #BinaryExpr
+    | expr op= (LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #BinaryExpr
+    | expr op= (EQEQ | NOT_EQUAL) expr #BinaryExpr
+    | expr op= AND expr #BinaryExpr
+    | expr op= OR expr #BinaryExpr
     | OPEN_BRACKET (expr (COMMA expr)*)? CLOSE_BRACKET #Array
     | value=INTEGER #IntegerLiteral
     | value=TRUE #BooleanLiteral
