@@ -65,6 +65,9 @@ public class JmmSymbolTableBuilder {
         for (var importNode : importDecls) {
             var pathList = importNode.getObjectAsList("path", String.class);
             var fullImport = String.join(".", pathList);
+            if (!importer.inClassPath(fullImport)) {
+                reports.add(newError(importNode, "Imported class '" + fullImport + "' does not exist in the classpath."));
+            }
             var importedClassName = pathList.get(pathList.size() - 1);
             var importPath = pathList.size() > 1
                     ? String.join(".", pathList.subList(0, pathList.size() - 1))
@@ -74,7 +77,6 @@ public class JmmSymbolTableBuilder {
             if (existingPath != null && !existingPath.equals(importPath)) {
                 reports.add(newError(importNode, "'" + importPath + "." + importedClassName + "' is already defined"));
             }
-
             if (!imports.contains(fullImport)) { this.imports.add(fullImport); }
         }
         
@@ -105,11 +107,22 @@ public class JmmSymbolTableBuilder {
         var locals = buildLocals(classDecl);
 
         // Resolve imported superclasses to their fully qualified name and default to Object
-        var superClassName = classDecl.getOptional("parent")
-                .map(this::resolveQualifiedClassName)
-                .orElse("Object");
+        var superClassNameFull = classDecl.getOptional("parent").map(parentName -> {
 
-        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassName, fields, methods, returnType, params, locals, importer);
+            var resolvedName = this.resolveQualifiedClassName(parentName);
+
+            if (parentName.equals(this.className)) {
+                reports.add(newError(classDecl, "Class '" + this.className + "' cannot extend itself."));
+            }
+            else if (parentName.equals(resolvedName) && !importer.isImplicitImport(parentName)) {
+                reports.add(newError(classDecl, "Superclass '" + parentName + "' is not imported."));
+            }
+
+            return resolvedName;
+
+        }).orElse("Object");
+
+        var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassNameFull, fields, methods, returnType, params, locals, importer);
 
         // Uncommenting displays the SYMBOL TABLE
         //System.out.println("\n========================================");
