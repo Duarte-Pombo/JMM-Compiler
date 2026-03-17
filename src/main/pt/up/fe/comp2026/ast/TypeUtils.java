@@ -269,11 +269,7 @@ public class TypeUtils {
         var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
         var signature = Signature.of(methodName, argTypes);
 
-        var ownerTable = recvClass.equals(table.getFullyQualifiedName())
-                ? Optional.of(table)
-                : table.getImportedSymbolTable(recvClass);
-
-        return ownerTable
+        return getClassSymbolTable(recvClass)
                 .flatMap(st -> st.getMethod(signature))
                 .map(MethodSymbol::returnType)
                 .orElseThrow(() -> new RuntimeException("Method '" + signature + "' not found in '" + recvClass + "'"));
@@ -308,11 +304,8 @@ public class TypeUtils {
 
         var recvClass = recvType.asClass().fullyQualifiedName();
 
-        var ownerTable = recvClass.equals(table.getFullyQualifiedName())
-                ? Optional.of(table)
-                : table.getImportedSymbolTable(recvClass);
-
-        return ownerTable.flatMap(st -> st.getField(fieldName))
+        return getClassSymbolTable(recvClass)
+                .flatMap(st -> st.getField(fieldName))
                 .map(Symbol::type)
                 .orElseThrow(() -> new RuntimeException("Field '" + fieldName + "' not in '" + recvClass + "'"));
     }
@@ -414,6 +407,110 @@ public class TypeUtils {
         }
 
         throw new RuntimeException("Variable '" + varName + "' is not defined in current scope");
+    }
+
+    public Optional<JmmType> getExpectedType(JmmNode expr, JmmNode currentMethod) {
+        var parent = expr.getParent();
+        if (parent == null) {
+            return Optional.empty();
+        }
+
+        if (parent.isInstance(ASSIGN_STMT)) {
+            return expr.getIndexOfSelf() == 1
+                    ? Optional.of(getExprType(parent.getChild(0)))
+                    : Optional.empty();
+        }
+
+        if (parent.isInstance(RETURN_STMT)) {
+            return expr.getIndexOfSelf() == 0 && currentMethod != null
+                    ? Optional.of(getMethodReturnType(currentMethod))
+                    : Optional.empty();
+        }
+
+        if (parent.isInstance(VAR_DECL)) {
+            return expr.getIndexOfSelf() == 1
+                    ? Optional.of(getDeclaredType(parent))
+                    : Optional.empty();
+        }
+
+        return Optional.empty();
+    }
+
+    public JmmType getDeclaredType(JmmNode declarationNode) {
+        return convertType(declarationNode.getChild(0), table.getImports(), table.getFullyQualifiedName());
+    }
+
+    public JmmType getMethodReturnType(JmmNode methodDecl) {
+        var signature = getMethodDeclSignature(methodDecl);
+        return table.getMethod(signature)
+                .map(MethodSymbol::returnType)
+                .orElseThrow(() -> new RuntimeException("Could not resolve method for signature " + signature));
+    }
+
+    public boolean isAssignable(JmmType sourceType, JmmType targetType) {
+        if (sourceType.equals(targetType)) {
+            return true;
+        }
+
+        if (!sourceType.isClass() || !targetType.isClass()) {
+            return false;
+        }
+
+        var sourceClass = sourceType.asClass();
+        var targetClass = targetType.asClass();
+
+        if (sourceClass.staticRef() || targetClass.staticRef()) {
+            return false;
+        }
+
+        return isSameClassOrSubclass(sourceClass.fullyQualifiedName(), targetClass.fullyQualifiedName());
+    }
+
+    private Optional<SymbolTable> getClassSymbolTable(String className) {
+        if (sameClass(className, table.getFullyQualifiedName())) {
+            return Optional.of(table);
+        }
+
+        return table.getImportedSymbolTable(className);
+    }
+
+    private boolean isSameClassOrSubclass(String sourceClassName, String targetClassName) {
+        if (sameClass(sourceClassName, targetClassName)) {
+            return true;
+        }
+
+        var sourceTable = getClassSymbolTable(sourceClassName);
+        if (sourceTable.isEmpty()) {
+            return false;
+        }
+
+        var superClassName = sourceTable.get().getSuperFullyQualifiedName();
+        if (superClassName == null) {
+            return false;
+        }
+
+        if (sameClass(superClassName, targetClassName)) {
+            return true;
+        }
+
+        if (sameClass(superClassName, "Object") || sameClass(superClassName, "java.lang.Object")) {
+            return false;
+        }
+
+        return isSameClassOrSubclass(superClassName, targetClassName);
+    }
+
+    private boolean sameClass(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+
+        return left.equals(right) || simpleName(left).equals(simpleName(right));
+    }
+
+    private String simpleName(String className) {
+        var lastDot = className.lastIndexOf('.');
+        return lastDot >= 0 ? className.substring(lastDot + 1) : className;
     }
 
 }
