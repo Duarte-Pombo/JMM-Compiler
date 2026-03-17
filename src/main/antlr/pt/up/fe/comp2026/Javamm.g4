@@ -130,6 +130,9 @@ stmt
     | RETURN expr? SEMI #ReturnStmt
     ;
 
+arrayInit : OPEN_BRACES (arrayElem (COMMA arrayElem)*)? CLOSE_BRACES;
+arrayElem : expr | arrayInit;
+
 expr
     : OPEN_PARENTHESES expr CLOSE_PARENTHESES #ParenthesesExpr
     | expr OPEN_BRACKET expr CLOSE_BRACKET #ArrayAccess
@@ -140,7 +143,7 @@ expr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
     | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ #NewArray
-    | NEW INT OPEN_BRACKET CLOSE_BRACKET OPEN_BRACES (expr (COMMA expr)*)? CLOSE_BRACES #NewArrayByExtension
+    | NEW INT (OPEN_BRACKET CLOSE_BRACKET)+ arrayInit #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
     | expr op= (LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #BinaryExpr
