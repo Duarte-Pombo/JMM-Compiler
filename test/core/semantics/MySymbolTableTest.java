@@ -384,6 +384,44 @@ public class MySymbolTableTest extends JmmTestEnv {
     }
 
     @Test
+    public void testDuplicateParameterNameAddsSemanticError() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    public int foo(int value, boolean value) { return 0; }
+                }""", JmmKind.PROGRAM);
+
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Expected a semantic error report for duplicate parameter name",
+                result.reports().stream()
+                        .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                        .map(String::toLowerCase)
+                        .anyMatch(message -> message.contains("duplicate parameter") && message.contains("value")));
+    }
+
+    @Test
+    public void testDuplicateLocalVariableNameAddsSemanticError() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    public int foo() {
+                        int value;
+                        boolean value;
+                        return 0;
+                    }
+                }""", JmmKind.PROGRAM);
+
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Expected a semantic error report for duplicate local variable name",
+                result.reports().stream()
+                        .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                        .map(String::toLowerCase)
+                        .anyMatch(message -> message.contains("duplicate local variable") && message.contains("value")));
+    }
+
+    @Test
     public void testDuplicateMethodSignatureAddsSemanticErrorInsteadOfThrowing() {
         var parser = parseSnippet("""
                 package x;
