@@ -61,9 +61,20 @@ public class JmmSymbolTableBuilder {
         // New additions
         // Import
         var importDecls = root.getChildren(IMPORT_DECL); //.getFirst().get(JmmAttributes.IMPORT_DECLARATION.PATH);
+        var importedClassPaths = new HashMap<String, String>();
         for (var importNode : importDecls) {
             var pathList = importNode.getObjectAsList("path", String.class);
             var fullImport = String.join(".", pathList);
+            var importedClassName = pathList.get(pathList.size() - 1);
+            var importPath = pathList.size() > 1
+                    ? String.join(".", pathList.subList(0, pathList.size() - 1))
+                    : "";
+
+            var existingPath = importedClassPaths.putIfAbsent(importedClassName, importPath);
+            if (existingPath != null && !existingPath.equals(importPath)) {
+                reports.add(newError(importNode, "'" + importPath + "." + importedClassName + "' is already defined"));
+            }
+
             if (!imports.contains(fullImport)) { this.imports.add(fullImport); }
         }
         

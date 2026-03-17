@@ -6,6 +6,8 @@ import pt.up.fe.comp.jmm.analysis.table.Signature;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType;
 import pt.up.fe.comp.test.env.JmmTestEnv;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
+import pt.up.fe.comp2026.symboltable.JmmSymbolTableBuilder;
+import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import java.util.List;
 
 public class MySymbolTableTest extends JmmTestEnv {
@@ -323,5 +325,38 @@ public class MySymbolTableTest extends JmmTestEnv {
         var mainLocals = st.getLocalVariables("main").orElseThrow();
         assertEquals("main should have 1 local variable", 1, mainLocals.size());
         assertEquals("main local should be int", JmmPrimitiveType.INT, mainLocals.getFirst().type());
+    }
+
+    @Test
+    public void testDuplicateImportedClassNameWithDifferentPathAddsError() {
+        var parser = parseSnippet("""
+                package x;
+                import a.io;
+                import b.io;
+                class A {
+                    public int m() { return 0; }
+                }""", JmmKind.PROGRAM);
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Expected duplicate imported class name error for io",
+                result.reports().stream()
+                        .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                        .anyMatch(message -> message.contains("already defined") && message.contains("io")));
+    }
+
+    @Test
+    public void testDuplicateImportWithSamePathDoesNotAddDifferentPathError() {
+        var parser = parseSnippet("""
+                package x;
+                import util.io;
+                import util.io;
+                class A {
+                    public int m() { return 0; }
+                }""", JmmKind.PROGRAM);
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Importing the same path twice should not trigger different-path duplicate error",
+                result.reports().stream()
+                        .noneMatch(report -> report.getMessage().contains("is already defined")));
     }
 }

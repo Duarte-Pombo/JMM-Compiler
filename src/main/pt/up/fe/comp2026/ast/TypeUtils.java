@@ -9,6 +9,7 @@ import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmClassType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp.jmm.ast.Kind;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
 
@@ -109,6 +110,19 @@ public class TypeUtils {
         return arrayNode.getObjectAsList("dims", String.class).size();
     }
 
+    public JmmType getStmtType(JmmNode stmt) {
+        STMT.checkOrThrow(stmt);
+        var voidType = JmmPrimitiveType.fromString("void").orElseThrow();
+
+        return switch (stmt.getKind()) {
+            case COMPOUND_STMT, IF_ELSE_STMT, WHILE_STMT, DO_WHILE_STMT, FOR_STMT, ASSIGN_STMT, ARRAY_ASSIGN_STMT ->
+                    voidType;
+            case EXPR_STMT -> getExprType(stmt.getChild(0));
+            case RETURN_STMT -> stmt.getChildren().isEmpty() ? voidType : getExprType(stmt.getChild(0));
+            default ->
+                    throw new UnsupportedOperationException("Can't compute type for statement kind '" + stmt.getKind() + "'");
+        };
+    }
 
     /**
      * Gets the {@link JmmType} of an arbitrary expression.
