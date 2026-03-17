@@ -135,9 +135,26 @@ public class JmmSymbolTableBuilder {
     }
 
     private List<Symbol> buildFields(JmmNode classDecl) {
-        return classDecl.getChildren(VAR_DECL).stream()
-                .map(this::buildField)
-                .toList();
+        var fields = new ArrayList<Symbol>();
+        var fieldNames = new HashSet<String>();
+
+        for (var varDecl : classDecl.getChildren(VAR_DECL)) {
+            var field = buildField(varDecl);
+
+            if (!fieldNames.add(field.name())) {
+                reports.add(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(varDecl),
+                        NodeUtils.getColumn(varDecl),
+                        "Duplicate field name: " + field.name(),
+                        null));
+                continue;
+            }
+
+            fields.add(field);
+        }
+
+        return fields;
     }
 
     private Symbol buildField(JmmNode varDecl) {
@@ -150,10 +167,26 @@ public class JmmSymbolTableBuilder {
     }
 
     private List<MethodSymbol> buildMethods(JmmNode classDecl) {
+        var methods = new ArrayList<MethodSymbol>();
+        var signatures = new HashSet<pt.up.fe.comp.jmm.analysis.table.Signature>();
 
-        return classDecl.getChildren(METHOD_DECL).stream()
-                .map(this::buildMethod)
-                .toList();
+        for (var methodNode : classDecl.getChildren(METHOD_DECL)) {
+            var method = buildMethod(methodNode);
+
+            if (!signatures.add(method.signature())) {
+                reports.add(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(methodNode),
+                        NodeUtils.getColumn(methodNode),
+                        "Duplicate method signature: " + method.signature(),
+                        null));
+                continue;
+            }
+
+            methods.add(method);
+        }
+
+        return methods;
 
     }
 
