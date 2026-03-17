@@ -32,7 +32,8 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         return List.of(
                 new UndeclaredVariable(),
                 new Conditions(),
-                new This()
+                new This(),
+                new IdentifierDeclarationPass()
         );
     }
 
