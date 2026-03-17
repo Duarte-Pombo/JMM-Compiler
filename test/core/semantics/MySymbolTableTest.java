@@ -359,4 +359,88 @@ public class MySymbolTableTest extends JmmTestEnv {
                 result.reports().stream()
                         .noneMatch(report -> report.getMessage().contains("is already defined")));
     }
+
+    @Test
+    public void testDuplicateFieldNameAddsSemanticErrorInsteadOfThrowing() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    int value;
+                    boolean value;
+                }""", JmmKind.PROGRAM);
+
+        try {
+            var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+            assertTrue("Expected a semantic error report for duplicate field name",
+                    result.reports().stream()
+                            .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                            .map(String::toLowerCase)
+                            .anyMatch(message -> (message.contains("duplicate") || message.contains("already defined"))
+                                    && message.contains("value")));
+        } catch (Exception e) {
+            fail("Duplicate fields should produce a semantic report, not throw: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testDuplicateParameterNameAddsSemanticError() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    public int foo(int value, boolean value) { return 0; }
+                }""", JmmKind.PROGRAM);
+
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Expected a semantic error report for duplicate parameter name",
+                result.reports().stream()
+                        .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                        .map(String::toLowerCase)
+                        .anyMatch(message -> message.contains("duplicate parameter") && message.contains("value")));
+    }
+
+    @Test
+    public void testDuplicateLocalVariableNameAddsSemanticError() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    public int foo() {
+                        int value;
+                        boolean value;
+                        return 0;
+                    }
+                }""", JmmKind.PROGRAM);
+
+        var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+        assertTrue("Expected a semantic error report for duplicate local variable name",
+                result.reports().stream()
+                        .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                        .map(String::toLowerCase)
+                        .anyMatch(message -> message.contains("duplicate local variable") && message.contains("value")));
+    }
+
+    @Test
+    public void testDuplicateMethodSignatureAddsSemanticErrorInsteadOfThrowing() {
+        var parser = parseSnippet("""
+                package x;
+                class A {
+                    public int foo() { return 0; }
+                    public boolean foo() { return true; }
+                }""", JmmKind.PROGRAM);
+
+        try {
+            var result = JmmSymbolTableBuilder.build(parser.rootNode());
+
+            assertTrue("Expected a semantic error report for duplicate method declaration",
+                    result.reports().stream()
+                            .map(pt.up.fe.comp.jmm.report.Report::getMessage)
+                            .map(String::toLowerCase)
+                            .anyMatch(message -> (message.contains("duplicate") || message.contains("already defined"))
+                                    && message.contains("foo")));
+        } catch (Exception e) {
+            fail("Duplicate methods should produce a semantic report, not throw: " + e.getMessage());
+        }
+    }
 }
