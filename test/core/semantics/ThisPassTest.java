@@ -39,6 +39,50 @@ public class ThisPassTest extends JmmTestEnv {
     }
 
     @Test
+    public void thisAssignedToCurrentClassIsAccepted() {
+        semanticsFromSnippet("""
+                package x;
+                class A {
+                    public A m() {
+                        A a;
+                        a = this;
+                        return a;
+                    }
+                }""", false);
+    }
+
+    @Test
+    public void thisAssignedToSuperclassIsAccepted() {
+        semanticsFromSnippet("""
+                package x;
+                class A extends Object {
+                    public Object m() {
+                        Object a;
+                        a = this;
+                        return this;
+                    }
+                }""", false);
+    }
+
+    @Test
+    public void thisAssignedToIncompatibleObjectFails() {
+        var semantics = semanticsFromSnippet("""
+                package x;
+                import util.io;
+                class A {
+                    public A m() {
+                        io a;
+                        a = this;
+                        return this;
+                    }
+                }""", true);
+
+        assertTrue("Expected semantic error for incompatible object assignment with 'this'",
+                semantics.getReports(ReportType.ERROR).stream()
+                        .anyMatch(report -> report.getMessage().contains("'this' is not compatible with type 'util.io'")));
+    }
+
+    @Test
     public void staticMethodWithoutThisIsAccepted() {
         semanticsFromSnippet("""
                 package x;
