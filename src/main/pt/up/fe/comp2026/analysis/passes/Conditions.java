@@ -17,6 +17,7 @@ public class Conditions extends AnalysisVisitor {
     public void buildVisitor() {
         addVisit(JmmKind.METHOD_DECL, this::visitMethodDecl);
         addVisit(JmmKind.IF_ELSE_STMT, this::visitCondition);
+        addVisit(JmmKind.WHILE_STMT, this::visitCondition);
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {

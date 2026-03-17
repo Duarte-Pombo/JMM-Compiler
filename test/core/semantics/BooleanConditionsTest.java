@@ -88,6 +88,72 @@ public class BooleanConditionsTest extends JmmTestEnv {
         assertEquals("a", 1, errors.size());
     }
 
+    @Test
+    public void whileWithIntConditionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        while (5) {
+                            return 1;
+                        }
+                    }
+                }""");
+
+        var errors = conditionErrors(semantics);
+        assertEquals("eaa",1, errors.size());
+    }
+
+    @Test
+    public void booleanVariableConditionShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        boolean b;
+                        b = true;
+                        if (b) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("eaa",0, conditionErrors(semantics).size());
+    }
+
+    @Test
+    public void whileWithBooleanConditionShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        while (true) {
+                            return 1;
+                        }
+                    }
+                }""");
+
+        assertEquals("eaa",0, conditionErrors(semantics).size());
+    }
+
+    @Test
+    public void multipleInvalidConditionsShouldReportMultipleErrors() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        if (1) { return 1; }
+                        while (2) { return 2; }
+                        return 0;
+                    }
+                }""");
+
+        var errors = conditionErrors(semantics);
+        assertEquals("eaa",2, errors.size());
+    }
+
+
 
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
