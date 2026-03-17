@@ -1,6 +1,7 @@
 package core.semantics;
 
 import org.junit.Test;
+import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.test.env.JmmTestEnv;
@@ -124,6 +125,24 @@ public class TypeUtilsVarRefTypeTest extends JmmTestEnv {
         } catch (RuntimeException e) {
             assertTrue("Expected missing variable message", e.getMessage().contains("z"));
         }
+    }
+
+    @Test
+    public void getExprTypeVarRefKeepsMultidimensionalArrayDimensions() {
+        var semantics = symbolTableFromSnippet("""
+                package x;
+                class A {
+                    public int[][] m() {
+                        int[][] matrix;
+                        return matrix;
+                    }
+                }""", false);
+
+        var varRef = findVarRef(semantics.getRootNode(), "matrix");
+        var type = new TypeUtils(semantics.getSymbolTable()).getExprType(varRef);
+
+        assertTrue("matrix should resolve to an array type", type.isArray());
+        assertEquals("matrix should resolve to int[][]", new JmmArrayType(JmmPrimitiveType.INT, 2), type);
     }
 
     private JmmNode findVarRef(JmmNode root, String name) {

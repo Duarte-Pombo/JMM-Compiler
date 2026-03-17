@@ -89,9 +89,9 @@ param
     ;
 
 type
-    : val = INT (OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
-    | val = STRING (OPEN_BRACKET CLOSE_BRACKET)+ #StringArray 
-    | val = ID (OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
+    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
+    | val = STRING (dims += OPEN_BRACKET CLOSE_BRACKET)+ #StringArray
+    | val = ID (dims += OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
@@ -143,7 +143,7 @@ expr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
     | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ #NewArray
-    | NEW INT (OPEN_BRACKET CLOSE_BRACKET)+ arrayInit #NewArrayByExtension
+    | NEW INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ arrayInit #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
     | expr op= (LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expr #BinaryExpr

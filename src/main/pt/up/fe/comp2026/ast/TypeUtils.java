@@ -50,6 +50,7 @@ public class TypeUtils {
 
     public static JmmType convertType(JmmNode typeNode, List<String> imports, String currentClassFqName) {
         String kind = typeNode.getKind().toString();
+        int arrayDimensions = getArrayDimensions(typeNode);
 
         return switch (kind) {
             // Primitives
@@ -74,25 +75,38 @@ public class TypeUtils {
             }
 
             // Arrays
-            case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, 1);
-            case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), 1);
+            case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, arrayDimensions);
+            case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), arrayDimensions);
             case "ID_ARRAY" -> {
                 String typeName = typeNode.get("val");
                 Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
 
                 if (importFq.isPresent()) {
-                    yield new JmmArrayType(new JmmClassType(importFq.get(), true, false), 1);
+                    yield new JmmArrayType(new JmmClassType(importFq.get(), true, false), arrayDimensions);
                 } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
-                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), arrayDimensions);
                 } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
-                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), 1);
+                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), arrayDimensions);
                 } else {
-                    yield new JmmArrayType(new JmmClassType(typeName, false, false), 1);
+                    yield new JmmArrayType(new JmmClassType(typeName, false, false), arrayDimensions);
                 }
             }
 
             default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
         };
+    }
+
+    private static int getArrayDimensions(JmmNode arrayNode) {
+        int explicitDimensions = getExplicitArrayDimensions(arrayNode);
+        return explicitDimensions > 0 ? explicitDimensions : 1;
+    }
+
+    private static int getExplicitArrayDimensions(JmmNode arrayNode) {
+        if (!arrayNode.getAttributes().contains("dims")) {
+            return 0;
+        }
+
+        return arrayNode.getObjectAsList("dims", String.class).size();
     }
 
 
@@ -113,9 +127,9 @@ public class TypeUtils {
             case UNARY_EXPR -> intType();
             case NEW_OBJECT -> getNewObjectType(expr);
             case NEW_ARRAY -> getNewArrayType(expr);
-            case NEW_ARRAY_BY_EXTENSION -> new JmmArrayType(intType(), 1);
+            case NEW_ARRAY_BY_EXTENSION -> getNewArrayByExtensionType(expr);
             case BINARY_EXPR -> getBinExprType(expr);
-            // case ARRAY ->
+            case ARRAY -> getArrayType(expr);
             case INTEGER_LITERAL -> intType();
             case BOOLEAN_LITERAL -> booleanType();
             case VAR_REF_EXPR -> getVarExprType(expr);
@@ -125,26 +139,50 @@ public class TypeUtils {
         };
     }
 
+    private JmmType getArrayType(JmmNode arrayExpr) {
+        ARRAY.checkOrThrow(arrayExpr);
+
+        if (arrayExpr.getChildren().isEmpty()) {
+            throw new RuntimeException("Cannot infer type for empty array literal");
+        }
+
+        var firstElementType = getExprType(arrayExpr.getChild(0));
+
+        for (var elementExpr : arrayExpr.getChildren()) {
+            var elementType = getExprType(elementExpr);
+            if (!elementType.equals(firstElementType)) {
+                throw new RuntimeException("Array literal elements must have the same type");
+            }
+        }
+
+        if (firstElementType.isArray()) {
+            var nestedArrayType = (JmmArrayType) firstElementType;
+            return new JmmArrayType(nestedArrayType.itemType(), nestedArrayType.dimension() + 1);
+        }
+
+        return new JmmArrayType(firstElementType, 1);
+    }
+
     private JmmType getArrayAccessType(JmmNode arrayAccessExpr) {
-    ARRAY_ACCESS.checkOrThrow(arrayAccessExpr);
+        ARRAY_ACCESS.checkOrThrow(arrayAccessExpr);
 
-    var arrayType = getExprType(arrayAccessExpr.getChild(0));
-    var indexType = getExprType(arrayAccessExpr.getChild(1));
+        var arrayType = getExprType(arrayAccessExpr.getChild(0));
+        var indexType = getExprType(arrayAccessExpr.getChild(1));
 
-    if (!arrayType.isArray()) {
-        throw new RuntimeException("Array access target is not an array: " + arrayType);
-    }
+        if (!arrayType.isArray()) {
+            throw new RuntimeException("Array access target is not an array: " + arrayType);
+        }
 
-    if (!indexType.equals(intType())) {
-        throw new RuntimeException("Array index must be int, got: " + indexType);
-    }
+        if (!indexType.equals(intType())) {
+            throw new RuntimeException("Array index must be int, got: " + indexType);
+        }
 
-    var typedArray = (JmmArrayType) arrayType;
-    int dims = typedArray.dimension();
+        var typedArray = (JmmArrayType) arrayType;
+        int dims = typedArray.dimension();
 
-    return dims > 1
-            ? new JmmArrayType(typedArray.itemType(), dims - 1)
-            : typedArray.itemType();
+        return dims > 1
+                ? new JmmArrayType(typedArray.itemType(), dims - 1)
+                : typedArray.itemType();
     }
 
     private JmmType getNewArrayType(JmmNode newArrayExpr) {
@@ -158,6 +196,49 @@ public class TypeUtils {
         }
 
         return new JmmArrayType(intType(), newArrayExpr.getChildren().size());
+    }
+
+    private JmmType getNewArrayByExtensionType(JmmNode newArrayByExtensionExpr) {
+        NEW_ARRAY_BY_EXTENSION.checkOrThrow(newArrayByExtensionExpr);
+
+        int explicitDimensions = getExplicitArrayDimensions(newArrayByExtensionExpr);
+
+        int initializerDimensions = 0;
+        if (!newArrayByExtensionExpr.getChildren().isEmpty()) {
+            initializerDimensions = getArrayInitializerDimensions(newArrayByExtensionExpr.getChild(0));
+        }
+
+        int dimensions = explicitDimensions > 0 ? explicitDimensions : initializerDimensions;
+        if (dimensions <= 0) {
+            dimensions = 1;
+        }
+
+        return new JmmArrayType(intType(), dimensions);
+    }
+
+    private int getArrayInitializerDimensions(JmmNode node) {
+        if (ARRAY_ELEM.check(node)) {
+            if (node.getChildren().isEmpty()) {
+                return 0;
+            }
+
+            return getArrayInitializerDimensions(node.getChild(0));
+        }
+
+        if (!ARRAY_INIT.check(node)) {
+            return 0;
+        }
+
+        int maxNestedDimensions = 0;
+        for (var elem : node.getChildren(ARRAY_ELEM)) {
+            if (elem.getChildren().isEmpty()) {
+                continue;
+            }
+
+            maxNestedDimensions = Math.max(maxNestedDimensions, getArrayInitializerDimensions(elem.getChild(0)));
+        }
+
+        return 1 + maxNestedDimensions;
     }
 
     private JmmType getMethodCallType(JmmNode methodCallExpr) {

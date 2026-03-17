@@ -168,6 +168,25 @@ public class TypeUtilsArrayAccessTest extends JmmTestEnv {
         assertEquals("new int[] {1, 2, 3} should have type int[]", new JmmArrayType(JmmPrimitiveType.INT, 1), type);
     }
 
+    @Test
+    public void newArrayByExtensionMultidimensional() {
+        var table = symbolTableFromSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        int x;
+                        x = 0;
+                        return x;
+                    }
+                }""", false).getSymbolTable();
+
+        var newArrayExpr = parseExpr("new int[][] {{1, 2}, {3, 4}}");
+        var type = new TypeUtils(table).getExprType(newArrayExpr);
+
+        assertEquals("new int[][] {{1,2},{3,4}} should have type int[][]",
+                new JmmArrayType(JmmPrimitiveType.INT, 2), type);
+    }
+
 
     @Test
     public void nestedArrayAccess() {
