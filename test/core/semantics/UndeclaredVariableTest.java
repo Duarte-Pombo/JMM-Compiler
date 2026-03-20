@@ -100,6 +100,23 @@ public class UndeclaredVariableTest extends JmmTestEnv {
     }
 
     @Test
+    public void missingThisFieldProducesSemanticError() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int f;
+
+                    public int m() {
+                        return this.g;
+                    }
+                }""");
+
+        var errors = semanticErrors(semantics);
+        assertEquals("erm",1, errors.size());
+        assertTrue("erm", errors.getFirst().getMessage().contains("g"));
+    }
+
+    @Test
     public void localShadowsField() {
         var semantics = analyzeSnippet("""
                 package x;
@@ -205,8 +222,7 @@ public class UndeclaredVariableTest extends JmmTestEnv {
 
 	private List<Report> semanticErrors(JmmSemanticsResult semantics) {
 		return semantics.getReports(ReportType.ERROR).stream()
-				.filter(report -> report.getMessage().contains("Variable '")
-						&& report.getMessage().contains("does not exist"))
+				.filter(report -> report.getMessage().contains("does not exist"))
 				.toList();
 	}
 }
