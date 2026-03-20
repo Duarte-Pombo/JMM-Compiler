@@ -8,6 +8,7 @@ import pt.up.fe.comp.jmm.parser.JmmParserResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.ReportType;
 import pt.up.fe.comp.jmm.report.Stage;
+import pt.up.fe.comp2026.analysis.passes.Assignments;
 import pt.up.fe.comp2026.analysis.passes.NotImportedClass;
 import pt.up.fe.comp2026.analysis.passes.This;
 import pt.up.fe.comp2026.analysis.passes.Conditions;
@@ -34,7 +35,8 @@ public class JmmAnalysisImpl implements JmmAnalysis {
                 new NotImportedClass(table),
                 new IdentifierResolution(),
                 new Conditions(),
-                new This()
+                new This(),
+                new Assignments()
         );
     }
 
