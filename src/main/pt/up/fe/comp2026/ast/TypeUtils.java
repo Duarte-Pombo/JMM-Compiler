@@ -13,6 +13,8 @@ import pt.up.fe.comp.jmm.ast.Kind;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -267,12 +269,12 @@ public class TypeUtils {
 
         var recvClass = recvType.asClass().fullyQualifiedName();
         var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
-        var signature = Signature.of(methodName, argTypes);
 
         return getClassSymbolTable(recvClass)
-                .flatMap(st -> st.getMethod(signature))
+                .flatMap(st -> resolveMethod(st, methodName, argTypes))
                 .map(MethodSymbol::returnType)
-                .orElseThrow(() -> new RuntimeException("Method '" + signature + "' not found in '" + recvClass + "'"));
+                .or(() -> resolveReflectedMethodType(recvClass, methodName, argTypes))
+                .orElseThrow(() -> new RuntimeException("Method '" + Signature.of(methodName, argTypes) + "' not found in '" + recvClass + "'"));
     }
 
     private JmmType getImplicitCallType(JmmNode implicitCallExpr) {
@@ -280,11 +282,10 @@ public class TypeUtils {
 
         var methodName = implicitCallExpr.get("name");
         var argTypes = implicitCallExpr.getChildren().stream().map(this::getExprType).toList();
-        var signature = Signature.of(methodName, argTypes);
 
-        return table.getMethod(signature)
+        return resolveMethod(table, methodName, argTypes)
                     .map(MethodSymbol::returnType)
-                    .orElseThrow(() -> new RuntimeException("Method not found: " + signature));
+                    .orElseThrow(() -> new RuntimeException("Method not found: " + Signature.of(methodName, argTypes)));
     }
 
     private JmmType getFieldAccessType(JmmNode expr) {
@@ -472,6 +473,184 @@ public class TypeUtils {
         }
 
         return table.getImportedSymbolTable(className);
+    }
+
+    private Optional<MethodSymbol> resolveMethod(SymbolTable symbolTable, String methodName, List<JmmType> argTypes) {
+        var signature = Signature.of(methodName, argTypes);
+        var exactMatch = symbolTable.getMethod(signature);
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+
+        return symbolTable.getMethods(methodName).stream()
+                .filter(method -> method.parameters().size() == argTypes.size())
+                .filter(method -> parametersMatch(method, argTypes))
+                .findFirst();
+    }
+
+    private boolean parametersMatch(MethodSymbol method, List<JmmType> argTypes) {
+        for (int i = 0; i < argTypes.size(); i++) {
+            var sourceType = argTypes.get(i);
+            var targetType = method.parameters().get(i).type();
+
+            if (!sourceType.equals(targetType) && !isAssignable(sourceType, targetType)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private Optional<JmmType> resolveReflectedMethodType(String className, String methodName, List<JmmType> argTypes) {
+        try {
+            var javaClass = resolveJavaClass(className);
+
+            for (var method : javaClass.getMethods()) {
+                if (!method.getName().equals(methodName)) {
+                    continue;
+                }
+
+                if (method.getParameterCount() != argTypes.size()) {
+                    continue;
+                }
+
+                if (reflectionParametersMatch(method, argTypes)) {
+                    return Optional.of(fromJavaType(method.getReturnType()));
+                }
+            }
+        } catch (ClassNotFoundException ignored) {
+            return Optional.empty();
+        }
+
+        return Optional.empty();
+    }
+
+    private boolean reflectionParametersMatch(Method method, List<JmmType> argTypes) {
+        var parameterTypes = method.getParameterTypes();
+
+        for (int i = 0; i < parameterTypes.length; i++) {
+            var expected = parameterTypes[i];
+            var actual = argTypes.get(i);
+
+            try {
+                var actualClass = toJavaClass(actual);
+
+                if (!wrap(expected).isAssignableFrom(wrap(actualClass))) {
+                    return false;
+                }
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private Class<?> resolveJavaClass(String className) throws ClassNotFoundException {
+        try {
+            return Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            return Class.forName("java.lang." + className);
+        }
+    }
+
+    private Class<?> toJavaClass(JmmType type) throws ClassNotFoundException {
+        if (type.equals(JmmPrimitiveType.INT)) {
+            return int.class;
+        }
+
+        if (type.equals(JmmPrimitiveType.BOOLEAN)) {
+            return boolean.class;
+        }
+
+        if (type.equals(JmmPrimitiveType.VOID)) {
+            return void.class;
+        }
+
+        if (type.isArray()) {
+            var arrayType = (JmmArrayType) type;
+            var componentClass = toJavaClass(arrayType.itemType());
+            int[] dimensions = new int[arrayType.dimension()];
+            return Array.newInstance(componentClass, dimensions).getClass();
+        }
+
+        if (type.isClass()) {
+            return resolveJavaClass(type.asClass().fullyQualifiedName());
+        }
+
+        throw new ClassNotFoundException("Unsupported type: " + type.print());
+    }
+
+    private Class<?> wrap(Class<?> type) {
+        if (!type.isPrimitive()) {
+            return type;
+        }
+
+        if (type == int.class) {
+            return Integer.class;
+        }
+
+        if (type == boolean.class) {
+            return Boolean.class;
+        }
+
+        if (type == long.class) {
+            return Long.class;
+        }
+
+        if (type == double.class) {
+            return Double.class;
+        }
+
+        if (type == float.class) {
+            return Float.class;
+        }
+
+        if (type == char.class) {
+            return Character.class;
+        }
+
+        if (type == byte.class) {
+            return Byte.class;
+        }
+
+        if (type == short.class) {
+            return Short.class;
+        }
+
+        return Void.class;
+    }
+
+    private JmmType fromJavaType(Class<?> javaType) {
+        if (javaType == void.class) {
+            return JmmPrimitiveType.VOID;
+        }
+
+        if (javaType == int.class) {
+            return JmmPrimitiveType.INT;
+        }
+
+        if (javaType == boolean.class) {
+            return JmmPrimitiveType.BOOLEAN;
+        }
+
+        if (javaType.isArray()) {
+            int dims = 0;
+            var componentType = javaType;
+            while (componentType.isArray()) {
+                dims++;
+                componentType = componentType.getComponentType();
+            }
+
+            return new JmmArrayType(fromJavaType(componentType), dims);
+        }
+
+        var fqName = javaType.getName();
+        if (fqName.startsWith("java.lang.")) {
+            return new JmmClassType(javaType.getSimpleName(), false, false);
+        }
+
+        return new JmmClassType(fqName, true, false);
     }
 
     private boolean isSameClassOrSubclass(String sourceClassName, String targetClassName) {

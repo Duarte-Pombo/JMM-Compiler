@@ -8,9 +8,10 @@ import pt.up.fe.comp.jmm.parser.JmmParserResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.ReportType;
 import pt.up.fe.comp.jmm.report.Stage;
+import pt.up.fe.comp2026.analysis.passes.NotImportedClass;
+import pt.up.fe.comp2026.analysis.passes.This;
 import pt.up.fe.comp2026.analysis.passes.Conditions;
 import pt.up.fe.comp2026.analysis.passes.IdentifierResolution;
-import pt.up.fe.comp2026.analysis.passes.This;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTableBuilder;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
      */
     private List<AnalysisPass> buildPasses(SymbolTable table) {
         return List.of(
+                new NotImportedClass(table),
                 new IdentifierResolution(),
                 new Conditions(),
                 new This()
