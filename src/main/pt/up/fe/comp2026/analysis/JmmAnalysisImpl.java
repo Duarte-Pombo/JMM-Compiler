@@ -34,9 +34,9 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         return List.of(
                 new NotImportedClass(table),
                 new IdentifierResolution(),
-                new Assignments(),
                 new Conditions(),
-                new This()
+                new This(),
+                new Assignments()
         );
     }
 
