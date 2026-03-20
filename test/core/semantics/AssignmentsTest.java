@@ -76,6 +76,118 @@ public class AssignmentsTest extends JmmTestEnv {
         assertEquals("aaa",0, assignmentErrors(semantics).size());
     }
 
+    @Test
+    public void exceptionSubclassShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Exception e;
+                        e = new NullPointerException();
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("aa",0, assignmentErrors(semantics).size());
+    }
+
+    @Test
+    public void errorNotExceptionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Exception e;
+                        e = new AssertionError();
+                        return 0;
+                    }
+                }""");
+
+        var errors = assignmentErrors(semantics);
+        assertEquals("a",1, errors.size());
+    }
+
+    @Test
+    public void throwableShouldAcceptExceptionAndError() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Throwable t;
+                        t = new Exception();
+                        t = new AssertionError();
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("aa",0, assignmentErrors(semantics).size());
+    }
+
+    @Test
+    public void exceptionShouldNotAcceptError() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Exception e;
+                        e = new Error();
+                        return 0;
+                    }
+                }""");
+
+        var errors = assignmentErrors(semantics);
+        assertEquals("a",1, errors.size());
+    }
+
+    @Test
+    public void objectShouldAcceptEverything() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Object o;
+                        o = new String();
+                        o = new Exception();
+                        o = new AssertionError();
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("a",0, assignmentErrors(semantics).size());
+    }
+
+    @Test
+    public void stringToObjectShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Object o;
+                        o = new String();
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("a",0, assignmentErrors(semantics).size());
+    }
+
+    @Test
+    public void objectToStringShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        Object o;
+                        String s;
+                        s = o;
+                        return 0;
+                    }
+                }""");
+
+        var errors = assignmentErrors(semantics);
+        assertEquals("aaa",1, errors.size());
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
