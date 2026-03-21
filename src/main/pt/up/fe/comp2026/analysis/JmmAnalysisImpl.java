@@ -30,6 +30,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         return List.of(
                 new NotImportedClass(table),
                 new IdentifierResolution(),
+                new Calls(),
                 new BinaryExpressions(),
                 new Conditions(),
                 new This(),

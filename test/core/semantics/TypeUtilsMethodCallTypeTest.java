@@ -67,6 +67,22 @@ public class TypeUtilsMethodCallTypeTest extends JmmTestEnv {
         assertEquals("this.foo(true) should resolve to boolean overload", JmmPrimitiveType.BOOLEAN, types.getExprType(boolCall));
     }
 
+    @Test
+    public void getExprTypeMethodCallInheritedFromObjectResolvesThroughSuper() {
+        var table = symbolTableFromSnippet("""
+                package x;
+                class A {
+                    public int m() { return 0; }
+                }""", false).getSymbolTable();
+
+        var methodCall = parseMethodCallExpr("this.toString()");
+        var type = new TypeUtils(table).getExprType(methodCall);
+
+        assertTrue("this.toString() should have class type", type.isClass());
+        assertTrue("this.toString() should have type String",
+                type.asClass().fullyQualifiedName().endsWith("String"));
+    }
+
     private JmmNode parseMethodCallExpr(String code) {
         var parser = parseSnippet(code, JmmKind.EXPR);
         var expr = parser.rootNode();
