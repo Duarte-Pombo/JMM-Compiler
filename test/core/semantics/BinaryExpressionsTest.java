@@ -32,6 +32,83 @@ public class BinaryExpressionsTest extends JmmTestEnv {
 
         assertEquals("aa", 0, binaryExprErrors(semantics).size());
     }
+
+    @Test
+    public void testModuloOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        int b;
+                        a = 10;
+                        b = 3;
+                        return a % b;
+                    }
+                }""");
+
+        assertEquals("aa", 0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryPlusOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        a = 5;
+                        return +a;
+                    }
+                }""");
+
+        assertEquals("aa", 0, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryMinusOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        a = 5;
+                        return -a;
+                    }
+                }""");
+
+        assertEquals("aa", 0, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryIncrementOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        a = 5;
+                        return ++a;
+                    }
+                }""");
+
+        assertEquals("aa", 0, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryDecrementOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        a = 5;
+                        return --a;
+                    }
+                }""");
+
+        assertEquals("aa", 0, unaryExprErrors(semantics).size());
+    }
     @Test
     public void testLogicalOk() {
         var semantics = analyzeSnippet("""
@@ -198,6 +275,83 @@ public class BinaryExpressionsTest extends JmmTestEnv {
                 }""");
 
         assertEquals("A",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testModuloInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        boolean b;
+                        a = 10;
+                        b = true;
+                        return a % b;
+                    }
+                }""");
+
+        assertEquals("a", 1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryPlusInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        boolean a;
+                        a = true;
+                        return +a;
+                    }
+                }""");
+
+        assertEquals("aa", 1, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryMinusInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        boolean a;
+                        a = true;
+                        return -a;
+                    }
+                }""");
+
+        assertEquals("aa", 1, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryIncrementInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        boolean a;
+                        a = true;
+                        return ++a;
+                    }
+                }""");
+
+        assertEquals("aa", 1, unaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testUnaryDecrementInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        boolean a;
+                        a = true;
+                        return --a;
+                    }
+                }""");
+
+        assertEquals("aa", 1, unaryExprErrors(semantics).size());
     }
 
     @Test
@@ -418,6 +572,12 @@ public class BinaryExpressionsTest extends JmmTestEnv {
     private List<Report> binaryExprErrors(JmmSemanticsResult semantics) {
         return semantics.getReports(ReportType.ERROR).stream()
                 .filter(r -> r.getMessage().contains("Invalid binary expression"))
+                .toList();
+    }
+
+    private List<Report> unaryExprErrors(JmmSemanticsResult semantics) {
+        return semantics.getReports(ReportType.ERROR).stream()
+                .filter(r -> r.getMessage().contains("Invalid unary expression"))
                 .toList();
     }
 }
