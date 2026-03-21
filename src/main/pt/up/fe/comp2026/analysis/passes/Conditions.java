@@ -34,11 +34,15 @@ public class Conditions extends AnalysisVisitor {
     }
 
     private Void visitCondFor(JmmNode stmt, SymbolTable table) {
-        if (!stmt.getAttributes().contains("cond")) {
-        return null; // The condition is optional, so if it's not there, it's valid
-    }
+        var conditionWrapper = stmt.getChildren(JmmKind.FOR_CONDITION);
 
-        var conditionNode = stmt.getObject("cond", JmmNode.class);
+        if (conditionWrapper.isEmpty()) {
+            return null;
+        }
+
+        var wrapperNode = conditionWrapper.get(0);
+
+        var conditionNode = wrapperNode.getChild(0);
 
         var conditionType = TypeUtils.with(table).getExprType(conditionNode);
 
