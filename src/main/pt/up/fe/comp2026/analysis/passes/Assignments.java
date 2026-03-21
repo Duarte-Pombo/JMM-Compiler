@@ -11,6 +11,7 @@ public class Assignments extends AnalysisVisitor {
     @Override
     public void buildVisitor() {
         addVisit(JmmKind.ASSIGN_STMT, this::visitAssignStmt);
+        addVisit(JmmKind.VAR_DECL, this::visitVarDecl);
     }
 
     private Void visitAssignStmt(JmmNode assignStmt, SymbolTable table) {
@@ -26,6 +27,28 @@ public class Assignments extends AnalysisVisitor {
         var message = "Cannot assign expression of type '" + rType.print() +
                 "' to assignee of type '" + lType.print() + "'";
         addReport(newError(assignStmt, message));
+        return null;
+    }
+
+    private Void visitVarDecl(JmmNode varDecl, SymbolTable table) {
+
+        if (varDecl.getChildren().size() <= 1) {
+            return null;
+        }
+
+        var types = TypeUtils.with(table);
+
+        var lType = types.getDeclaredType(varDecl);
+        var rType = types.getExprType(varDecl.getChild(1));
+
+        if (types.isAssignable(rType, lType)) {
+            return null;
+        }
+
+        var message = "Cannot initialize variable of type '" + lType.print() +
+                "' with expression of type '" + rType.print() + "'";
+        addReport(newError(varDecl, message));
+
         return null;
     }
 }
