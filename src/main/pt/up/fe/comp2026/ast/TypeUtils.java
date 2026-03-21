@@ -9,15 +9,16 @@ import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmClassType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.ast.Kind;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
 
@@ -270,10 +271,7 @@ public class TypeUtils {
         var recvClass = recvType.asClass().fullyQualifiedName();
         var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
 
-        return getClassSymbolTable(recvClass)
-                .flatMap(st -> resolveMethod(st, methodName, argTypes))
-                .map(MethodSymbol::returnType)
-                .or(() -> resolveReflectedMethodType(recvClass, methodName, argTypes))
+        return resolveMethodTypeInHierarchy(recvClass, methodName, argTypes)
                 .orElseThrow(() -> new RuntimeException("Method '" + Signature.of(methodName, argTypes) + "' not found in '" + recvClass + "'"));
     }
 
@@ -283,9 +281,8 @@ public class TypeUtils {
         var methodName = implicitCallExpr.get("name");
         var argTypes = implicitCallExpr.getChildren().stream().map(this::getExprType).toList();
 
-        return resolveMethod(table, methodName, argTypes)
-                    .map(MethodSymbol::returnType)
-                    .orElseThrow(() -> new RuntimeException("Method not found: " + Signature.of(methodName, argTypes)));
+        return resolveMethodTypeInHierarchy(table.getFullyQualifiedName(), methodName, argTypes)
+                .orElseThrow(() -> new RuntimeException("Method not found: " + Signature.of(methodName, argTypes)));
     }
 
     private JmmType getFieldAccessType(JmmNode expr) {
@@ -486,6 +483,36 @@ public class TypeUtils {
                 .filter(method -> method.parameters().size() == argTypes.size())
                 .filter(method -> parametersMatch(method, argTypes))
                 .findFirst();
+    }
+
+    private Optional<JmmType> resolveMethodTypeInHierarchy(String className, String methodName, List<JmmType> argTypes) {
+        return resolveMethodTypeInHierarchy(className, methodName, argTypes, new HashSet<>());
+    }
+
+    private Optional<JmmType> resolveMethodTypeInHierarchy(String className, String methodName, List<JmmType> argTypes, Set<String> visitedClasses) {
+        if (!visitedClasses.add(className)) {
+            return Optional.empty();
+        }
+
+        var classTable = getClassSymbolTable(className);
+        if (classTable.isPresent()) {
+            var methodType = resolveMethod(classTable.get(), methodName, argTypes)
+                    .map(MethodSymbol::returnType);
+
+            if (methodType.isPresent()) {
+                return methodType;
+            }
+
+            var superClassName = classTable.get().getSuperFullyQualifiedName();
+            if (superClassName != null && !sameClass(superClassName, className)) {
+                var inheritedMethodType = resolveMethodTypeInHierarchy(superClassName, methodName, argTypes, visitedClasses);
+                if (inheritedMethodType.isPresent()) {
+                    return inheritedMethodType;
+                }
+            }
+        }
+
+        return resolveReflectedMethodType(className, methodName, argTypes);
     }
 
     private boolean parametersMatch(MethodSymbol method, List<JmmType> argTypes) {

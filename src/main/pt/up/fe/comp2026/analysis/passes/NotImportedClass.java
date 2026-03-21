@@ -18,7 +18,6 @@ public class NotImportedClass extends AnalysisVisitorWithTable {
         addVisit(JmmKind.METHOD_DECL, this::visitMethodDecl);
         addVisit(JmmKind.VAR_DECL, this::visitVarDecl);
         addVisit(JmmKind.NEW_OBJECT, this::visitNewObject);
-        addVisit(JmmKind.METHOD_CALL, this::visitMethodCall);
     }
 
     private Void visitMethodDecl(JmmNode methodDecl, SymbolTable symbolTable) {
@@ -41,16 +40,6 @@ public class NotImportedClass extends AnalysisVisitorWithTable {
 
         if (!isAvailableClassName(className)) {
             addReport(newError(newObjectExpr, "Class '" + className + "' is not imported"));
-        }
-
-        return null;
-    }
-
-    private Void visitMethodCall(JmmNode methodCallExpr, SymbolTable symbolTable) {
-        try {
-            types.getExprType(methodCallExpr);
-        } catch (RuntimeException e) {
-            addReport(newError(methodCallExpr, e.getMessage()));
         }
 
         return null;
