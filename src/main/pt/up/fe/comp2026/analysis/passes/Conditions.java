@@ -15,10 +15,31 @@ public class Conditions extends AnalysisVisitor {
     public void buildVisitor() {
         addVisit(JmmKind.IF_ELSE_STMT, this::visitCondition);
         addVisit(JmmKind.WHILE_STMT, this::visitCondition);
+        addVisit(JmmKind.FOR_STMT,this::visitCondFor);
     }
 
     private Void visitCondition(JmmNode stmt, SymbolTable table) {
         var conditionNode = stmt.getChild(0);
+        var conditionType = TypeUtils.with(table).getExprType(conditionNode);
+
+        if (conditionType.equals(TypeUtils.booleanType()) && !conditionType.isArray()) {
+            return null;
+        }
+
+        var message ="Condition expression must be of type boolean";
+        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(stmt),
+                NodeUtils.getColumn(stmt), message, null)
+        );
+        return null;
+    }
+
+    private Void visitCondFor(JmmNode stmt, SymbolTable table) {
+        if (!stmt.getAttributes().contains("cond")) {
+        return null; // The condition is optional, so if it's not there, it's valid
+    }
+
+        var conditionNode = stmt.getObject("cond", JmmNode.class);
+
         var conditionType = TypeUtils.with(table).getExprType(conditionNode);
 
         if (conditionType.equals(TypeUtils.booleanType()) && !conditionType.isArray()) {

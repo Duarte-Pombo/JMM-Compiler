@@ -120,7 +120,7 @@ stmt
     | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
     | FOR OPEN_PARENTHESES 
         (initVar = ID EQUALS expr)? 
-        SEMI expr? SEMI
+        SEMI cond=expr? SEMI
         (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
         CLOSE_PARENTHESES stmt 
           #ForStmt

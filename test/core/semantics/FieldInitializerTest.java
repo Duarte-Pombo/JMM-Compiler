@@ -56,6 +56,18 @@ public class FieldInitializerTest extends JmmTestEnv {
     }
 
     @Test
+    public void fieldInitializerReferencingAnotherFieldShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int a = 1;
+                    int b = a;
+                }""");
+
+        assertEquals("Should have 0 errors", 0, initializerErrors(semantics).size());
+    }
+
+    @Test
     public void invalidIntAssignedBooleanShouldFail() {
         var semantics = analyzeSnippet("""
                 package x;
@@ -65,6 +77,33 @@ public class FieldInitializerTest extends JmmTestEnv {
 
         var errors = initializerErrors(semantics);
         assertEquals("Should have 1 error", 1, errors.size());
+    }
+
+    @Test
+    public void invalidFieldInitializerShouldProduceSemanticError() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int a = true;
+                }""");
+
+        assertTrue("Expected at least one semantic error",
+                !semantics.getReports(ReportType.ERROR).isEmpty());
+    }
+
+    @Test
+    public void invalidFieldInitializerShouldReportTypeMismatch() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int a = true;
+                }""");
+
+        assertTrue("Expected a type mismatch error for field initializer",
+                semantics.getReports(ReportType.ERROR).stream()
+                        .anyMatch(report -> report.getMessage().contains("initialize variable")
+                                || report.getMessage().contains("Cannot assign")
+                                || report.getMessage().contains("type")));
     }
 
     @Test
