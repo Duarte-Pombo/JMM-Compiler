@@ -1,6 +1,7 @@
 package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
@@ -33,8 +34,13 @@ public class IdentifierResolution extends AnalysisVisitor {
         node.getOptional("initVar")
                 .ifPresent(varName -> checkIdentifierExists(varName, node, table));
 
-        node.getOptional("updateVar")
-                .ifPresent(varName -> checkIdentifierExists(varName, node, table));
+        node.getOptional("updateVar").ifPresent(varName -> {
+            checkIdentifierExists(varName, node, table);
+
+            if (node.getOptional(JmmAttributes.FOR_STMT.OP).isPresent()) {
+                checkForUpdateIsInt(varName, node, table);
+            }
+        });
 
         return null;
     }
@@ -107,5 +113,39 @@ public class IdentifierResolution extends AnalysisVisitor {
         } catch (RuntimeException ignored) {
             return false;
         }
+    }
+
+    private void checkForUpdateIsInt(String idName, JmmNode forStmt, SymbolTable table) {
+        var idType = getIdentifierType(idName, forStmt, table);
+
+        if (idType.isPresent() && idType.get().equals(TypeUtils.intType())) {
+            return;
+        }
+
+        addReport(newError(forStmt, "For update with '" + forStmt.get(JmmAttributes.FOR_STMT.OP) + "' requires int variable '" + idName + "'."));
+    }
+
+    private java.util.Optional<JmmType> getIdentifierType(String idName, JmmNode node, SymbolTable table) {
+        var methodNode = node.getAncestor(JmmKind.METHOD_DECL);
+
+        if (methodNode.isPresent()) {
+            var types = TypeUtils.with(table);
+            var signature = types.getMethodDeclSignature(methodNode.get());
+            var method = table.getMethod(signature);
+
+            if (method.isPresent()) {
+                var localType = method.get().getLocalVariable(idName).map(Symbol::type);
+                if (localType.isPresent()) {
+                    return localType;
+                }
+
+                var paramType = method.get().getParameter(idName).map(Symbol::type);
+                if (paramType.isPresent()) {
+                    return paramType;
+                }
+            }
+        }
+
+        return table.getField(idName).map(Symbol::type);
     }
 }
