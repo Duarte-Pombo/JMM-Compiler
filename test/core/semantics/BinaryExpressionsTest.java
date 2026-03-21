@@ -51,6 +51,24 @@ public class BinaryExpressionsTest extends JmmTestEnv {
     }
 
     @Test
+    public void testLogicalOrOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                     boolean method() {
+                         boolean a;
+                         boolean b;
+                         a = true;
+                         b = false;
+                         return a || b;
+                     }
+                }
+                """);
+
+        assertEquals("aa",0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
     public void testComparisonOk() {
         var semantics = analyzeSnippet("""
                 package x;
@@ -61,6 +79,57 @@ public class BinaryExpressionsTest extends JmmTestEnv {
                         a = 5;
                         b = 10;
                         return a < b;
+                    }
+                }""");
+
+        assertEquals("aa",0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testGreaterThanOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        int a;
+                        int b;
+                        a = 10;
+                        b = 5;
+                        return a > b;
+                    }
+                }""");
+
+        assertEquals("aa",0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testGreaterEqualOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        int a;
+                        int b;
+                        a = 10;
+                        b = 10;
+                        return a >= b;
+                    }
+                }""");
+
+        assertEquals("aa",0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testLessEqualOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        int a;
+                        int b;
+                        a = 5;
+                        b = 10;
+                        return a <= b;
                     }
                 }""");
 
@@ -80,6 +149,29 @@ public class BinaryExpressionsTest extends JmmTestEnv {
                         e2 = new Exception();
 
                         if (e1 == e2) {
+                            return 1;
+                        }
+
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("a",0, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testInequalityObjectsOk() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        NullPointerException e1;
+                        Exception e2;
+
+                        e1 = new NullPointerException();
+                        e2 = new Exception();
+
+                        if (e1 != e2) {
                             return 1;
                         }
 
@@ -126,6 +218,23 @@ public class BinaryExpressionsTest extends JmmTestEnv {
     }
 
     @Test
+    public void testLogicalOrInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        int a;
+                        boolean b;
+                        a = 5;
+                        b = true;
+                        return a || b;
+                    }
+                }""");
+
+        assertEquals("a",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
     public void testComparisonInvalid() {
         var semantics = analyzeSnippet("""
                 package x;
@@ -136,6 +245,57 @@ public class BinaryExpressionsTest extends JmmTestEnv {
                         a = true;
                         b = false;
                         return a < b;
+                    }
+                }""");
+
+        assertEquals("a",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testGreaterThanInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        boolean a;
+                        boolean b;
+                        a = true;
+                        b = false;
+                        return a > b;
+                    }
+                }""");
+
+        assertEquals("a",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testGreaterEqualInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        boolean a;
+                        boolean b;
+                        a = true;
+                        b = false;
+                        return a >= b;
+                    }
+                }""");
+
+        assertEquals("a",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testLessEqualInvalid() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    boolean method() {
+                        boolean a;
+                        boolean b;
+                        a = true;
+                        b = false;
+                        return a <= b;
                     }
                 }""");
 
@@ -154,6 +314,28 @@ public class BinaryExpressionsTest extends JmmTestEnv {
                         b = true;
 
                         if (a == b) {
+                            return 1;
+                        }
+
+                        return 0;
+                    }
+                }""");
+
+        assertEquals("a",1, binaryExprErrors(semantics).size());
+    }
+
+    @Test
+    public void testInequalityInvalidDifferentTypes() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class Test {
+                    int method() {
+                        int a;
+                        boolean b;
+                        a = 5;
+                        b = true;
+
+                        if (a != b) {
                             return 1;
                         }
 
