@@ -119,9 +119,9 @@ stmt
     | WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES stmt #WhileStmt
     | DO stmt WHILE OPEN_PARENTHESES expr CLOSE_PARENTHESES SEMI #DoWhileStmt
     | FOR OPEN_PARENTHESES 
-        (initVar = ID EQUALS expr)? 
-        SEMI expr? SEMI
-        (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )? 
+        (initVar = ID EQUALS expr)?
+        SEMI forCondition? SEMI
+        (updateVar=ID EQUALS expr | updateVar=ID op=(INC | DEC) | op=(INC | DEC) updateVar=ID )?
         CLOSE_PARENTHESES stmt 
           #ForStmt
     | expr SEMI #ExprStmt
@@ -157,3 +157,6 @@ expr
     | name=ID #VarRefExpr
     | name=THIS #This
     ;
+
+
+forCondition : expr ;
