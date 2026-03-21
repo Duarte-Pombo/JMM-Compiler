@@ -14,6 +14,7 @@ public class BinaryExpressions extends AnalysisVisitor {
     @Override
     protected void buildVisitor() {
         addVisit(JmmKind.BINARY_EXPR, this::visitBinExpr);
+        addVisit(JmmKind.UNARY_EXPR, this::visitUnaryExpr);
     }
 
     private Void visitBinExpr(JmmNode binExpr, SymbolTable table) {
@@ -45,6 +46,23 @@ public class BinaryExpressions extends AnalysisVisitor {
         var message = "Invalid binary expression";
         addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(binExpr),
                 NodeUtils.getColumn(binExpr), message, null)
+        );
+        return null;
+    }
+
+    private Void visitUnaryExpr(JmmNode unaryExpr, SymbolTable table) {
+        var typeUtils = TypeUtils.with(table);
+
+        var value = unaryExpr.getChild(0);
+        var typeValue = typeUtils.getExprType(value);
+
+        if (typeValue.equals(TypeUtils.intType())) {
+            return null;
+        }
+
+        var message = "Invalid unary expression";
+        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(unaryExpr),
+                NodeUtils.getColumn(unaryExpr), message, null)
         );
         return null;
     }
