@@ -29,6 +29,23 @@ public class CallsTest extends JmmTestEnv {
     }
 
     @Test
+    public void implicitLocalMethodShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int id(int x) {
+                        return x;
+                    }
+
+                    public int m() {
+                        return id(3);
+                    }
+                }""");
+
+        assertEquals("Expected no semantic errors", 0, errorReports(semantics).size());
+    }
+
+    @Test
     public void explicitInheritedObjectMethodShouldPass() {
         var semantics = analyzeSnippet("""
                 package x;
