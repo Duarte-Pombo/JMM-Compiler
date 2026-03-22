@@ -34,7 +34,8 @@ public class JmmAnalysisImpl implements JmmAnalysis {
                 new BinaryExpressions(),
                 new Conditions(),
                 new This(),
-                new Assignments()
+                new Assignments(),
+                new ReturnStatement()
         );
     }
 
