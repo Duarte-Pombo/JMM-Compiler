@@ -24,7 +24,7 @@ public class ReturnStatement extends AnalysisVisitor {
             return null;
         }
 
-        var declaredReturnType = methodOpt.get().getReturnType();
+        var declaredReturnType = methodOpt.get().returnType();
 
         var returnStmts = method.getDescendants(JmmKind.RETURN_STMT);
 
