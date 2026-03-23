@@ -47,6 +47,10 @@ public class TypeUtils {
         return JmmPrimitiveType.BOOLEAN;
     }
 
+    public static JmmArrayType stringArrayType() {
+        return new JmmArrayType(new JmmClassType("String", false, false), 1);
+    }
+
     // Used by Opt
     public static JmmType convertType(JmmNode typeNode) {
         return convertType(typeNode, new ArrayList<>(), null);
@@ -80,21 +84,6 @@ public class TypeUtils {
 
             // Arrays
             case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, arrayDimensions);
-            case "STRING_ARRAY" -> new JmmArrayType(new JmmClassType("String", false, false), arrayDimensions);
-            case "ID_ARRAY" -> {
-                String typeName = typeNode.get("val");
-                Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
-
-                if (importFq.isPresent()) {
-                    yield new JmmArrayType(new JmmClassType(importFq.get(), true, false), arrayDimensions);
-                } else if (currentClassFqName != null && currentClassFqName.endsWith("." + typeName)) {
-                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), arrayDimensions);
-                } else if (currentClassFqName != null && currentClassFqName.equals(typeName)) {
-                    yield new JmmArrayType(new JmmClassType(currentClassFqName, false, false), arrayDimensions);
-                } else {
-                    yield new JmmArrayType(new JmmClassType(typeName, false, false), arrayDimensions);
-                }
-            }
 
             default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
         };
@@ -160,57 +149,38 @@ public class TypeUtils {
         ARRAY.checkOrThrow(arrayExpr);
 
         if (arrayExpr.getChildren().isEmpty()) {
-            throw new RuntimeException("Cannot infer type for empty array literal");
+            return new JmmArrayType(intType(), 1);
         }
 
         var firstElementType = getExprType(arrayExpr.getChild(0));
 
-        for (var elementExpr : arrayExpr.getChildren()) {
-            var elementType = getExprType(elementExpr);
-            if (!elementType.equals(firstElementType)) {
-                throw new RuntimeException("Array literal elements must have the same type");
-            }
-        }
-
         if (firstElementType.isArray()) {
             var nestedArrayType = (JmmArrayType) firstElementType;
-            return new JmmArrayType(nestedArrayType.itemType(), nestedArrayType.dimension() + 1);
+            return new JmmArrayType(intType(), nestedArrayType.dimension() + 1);
         }
 
-        return new JmmArrayType(firstElementType, 1);
+        return new JmmArrayType(intType(), 1);
     }
 
     private JmmType getArrayAccessType(JmmNode arrayAccessExpr) {
         ARRAY_ACCESS.checkOrThrow(arrayAccessExpr);
 
         var arrayType = getExprType(arrayAccessExpr.getChild(0));
-        var indexType = getExprType(arrayAccessExpr.getChild(1));
 
-        if (!arrayType.isArray()) {
-            throw new RuntimeException("Array access target is not an array: " + arrayType);
+        if (arrayType.isArray()) {
+            var typedArray = (JmmArrayType) arrayType;
+            int dims = typedArray.dimension();
+
+            return dims > 1
+                    ? new JmmArrayType(typedArray.itemType(), dims - 1)
+                    : typedArray.itemType();
         }
 
-        if (!indexType.equals(intType())) {
-            throw new RuntimeException("Array index must be int, got: " + indexType);
-        }
-
-        var typedArray = (JmmArrayType) arrayType;
-        int dims = typedArray.dimension();
-
-        return dims > 1
-                ? new JmmArrayType(typedArray.itemType(), dims - 1)
-                : typedArray.itemType();
+        return intType();
     }
 
     private JmmType getNewArrayType(JmmNode newArrayExpr) {
         NEW_ARRAY.checkOrThrow(newArrayExpr);
-
-        for (var sizeExpr : newArrayExpr.getChildren()) {
-            var sizeType = getExprType(sizeExpr);
-            if (!sizeType.equals(intType())) {
-                throw new RuntimeException("Array size must be int, got: " + sizeType);
-            }
-        }
 
         return new JmmArrayType(intType(), newArrayExpr.getChildren().size());
     }
@@ -219,11 +189,7 @@ public class TypeUtils {
         NEW_ARRAY_BY_EXTENSION.checkOrThrow(newArrayByExtensionExpr);
 
         int explicitDimensions = getExplicitArrayDimensions(newArrayByExtensionExpr);
-
-        int initializerDimensions = 0;
-        if (!newArrayByExtensionExpr.getChildren().isEmpty()) {
-            initializerDimensions = getArrayInitializerDimensions(newArrayByExtensionExpr.getChild(0));
-        }
+        int initializerDimensions = getArrayInitializerDimensions(newArrayByExtensionExpr.getChild(0));
 
         int dimensions = explicitDimensions > 0 ? explicitDimensions : initializerDimensions;
         if (dimensions <= 0) {
@@ -248,11 +214,7 @@ public class TypeUtils {
 
         int maxNestedDimensions = 0;
         for (var elem : node.getChildren(ARRAY_ELEM)) {
-            if (elem.getChildren().isEmpty()) {
-                continue;
-            }
-
-            maxNestedDimensions = Math.max(maxNestedDimensions, getArrayInitializerDimensions(elem.getChild(0)));
+            maxNestedDimensions = Math.max(maxNestedDimensions, getArrayInitializerDimensions(elem));
         }
 
         return 1 + maxNestedDimensions;
@@ -289,10 +251,7 @@ public class TypeUtils {
         var fieldName = expr.get("name");
         var recvType = getExprType(expr.getChild(0));
 
-        if ("length".equals(fieldName)) {
-            if (!recvType.isArray()) {
-                throw new RuntimeException("Field " + fieldName + " is not an array");
-            }
+        if ("length".equals(fieldName) && recvType.isArray()) {
             return intType();
         }
 
@@ -336,8 +295,8 @@ public class TypeUtils {
         var methodName = methodDecl.get("name");
         var params = new ArrayList<JmmType>();
 
-        if (methodDecl.getKind().toString().equals("MAIN_METHOD_DECL")) {
-            params.add(new JmmArrayType(new JmmClassType("String", false, false), 1));
+        if (MAIN_METHOD_DECL.check(methodDecl)) {
+            params.add(stringArrayType());
         } else {
             for (var paramNode : methodDecl.getChildren(JmmKind.PARAM)) {
                 var paramTypeNode = paramNode.getChildren().getFirst();

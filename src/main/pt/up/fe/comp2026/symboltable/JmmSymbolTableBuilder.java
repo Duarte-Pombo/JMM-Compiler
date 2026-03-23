@@ -124,13 +124,6 @@ public class JmmSymbolTableBuilder {
 
         var symbolTable = new JmmSymbolTable(imports, fullyQualifiedName, superClassNameFull, fields, methods, returnType, params, locals, importer);
 
-        // Uncommenting displays the SYMBOL TABLE
-        //System.out.println("\n========================================");
-        //System.out.println(" SYMBOL TABLE FOR: " + className);
-        //System.out.println("========================================");
-        //System.out.println(symbolTable.print());
-        //System.out.println("========================================\n");
-
         return new SymbolTableBuilderResult(symbolTable, reports);
     }
 
@@ -194,30 +187,30 @@ public class JmmSymbolTableBuilder {
     private MethodSymbol buildMethod(JmmNode method) {
         var methodName = method.get("name");
 
-        //System.out.println("\n------buildMethod------\n");
-        //System.out.println(method);
-        //System.out.println(methodName);
-        //System.out.println("\n------End------\n");
-
-        var typeNode = method.getChildren().getFirst();
-        var returnType = TypeUtils.convertType(typeNode,imports,this.fullyQualifiedName);
+        var returnType = buildReturnType(method);
 
 
         // 1. Build and validate parameters
         var params = new ArrayList<Symbol>();
         var paramNames = new HashSet<String>();
 
-        for (var paramNode : method.getChildren(PARAM)) {
-            var paramName = paramNode.get("name");
+        if (MAIN_METHOD_DECL.check(method)) {
+            var mainParam = buildMainParam(method);
+            params.add(mainParam);
+            paramNames.add(mainParam.name());
+        } else {
+            for (var paramNode : method.getChildren(PARAM)) {
+                var paramName = paramNode.get("name");
 
-            // .add() returns false if the name is already in the set!
-            if (!paramNames.add(paramName)) {
-                reports.add(newError(method, "Duplicate parameter name: " + paramName));
+                // .add() returns false if the name is already in the set!
+                if (!paramNames.add(paramName)) {
+                    reports.add(newError(method, "Duplicate parameter name: " + paramName));
+                }
+
+                var paramTypeNode = paramNode.getChildren().getFirst();
+                var paramType = TypeUtils.convertType(paramTypeNode,imports,this.fullyQualifiedName);
+                params.add(new Symbol(paramType, paramName));
             }
-
-            var paramTypeNode = paramNode.getChildren().getFirst();
-            var paramType = TypeUtils.convertType(paramTypeNode,imports,this.fullyQualifiedName);
-            params.add(new Symbol(paramType, paramName));
         }
 
         // 2. Build and validate local variables
@@ -281,17 +274,29 @@ public class JmmSymbolTableBuilder {
                 .forEach(method ->
                         params.put(
                                 method.get("name"),
-                                method.getChildren(PARAM).stream().map(this::buildParam).toList()
+                                buildMethodParams(method)
                         )
                 );
 
         return params;
     }
 
+    private List<Symbol> buildMethodParams(JmmNode method) {
+        if (MAIN_METHOD_DECL.check(method)) {
+            return List.of(buildMainParam(method));
+        }
+
+        return method.getChildren(PARAM).stream().map(this::buildParam).toList();
+    }
+
     private Symbol buildParam(JmmNode param) {
         var name = param.get(JmmAttributes.PARAM.NAME);
         var type = TypeUtils.convertType(param.getChildren().getFirst(), imports, this.fullyQualifiedName);
         return new Symbol(type, name);
+    }
+
+    private Symbol buildMainParam(JmmNode mainMethod) {
+        return new Symbol(TypeUtils.stringArrayType(), mainMethod.get("args"));
     }
 
     private Map<String, JmmType> buildReturnTypes(JmmNode classDecl) {
