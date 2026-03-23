@@ -4,30 +4,26 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
-import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 
 public class ReturnStatement extends AnalysisVisitor {
 
     @Override
     public void buildVisitor() {
+        addVisit(JmmKind.MAIN_METHOD_DECL, this::visitMainMethodDecl);
         addVisit(JmmKind.GENERAL_METHOD_DECL, this::visitMethodDecl);
     }
 
-    private Void visitMethodDecl(JmmNode method, SymbolTable table) {
-        boolean isStatic = method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
-        boolean isMain = isStatic && "main".equals(method.get("name"));
-
-        if (isMain) {
-            // main() must NOT have a return statement
-            var returnStmts = method.getDescendants(JmmKind.RETURN_STMT);
-            if (!returnStmts.isEmpty()) {
-                addReport(newError(returnStmts.get(0),
-                        "Method 'main' must not have a return statement."));
-            }
-            return null;
+    private Void visitMainMethodDecl(JmmNode method, SymbolTable symbolTable) {
+        var returnStmts = method.getDescendants(JmmKind.RETURN_STMT);
+        if (!returnStmts.isEmpty()) {
+            addReport(newError(returnStmts.get(0),
+                    "Method 'main' must not have a return statement."));
         }
+        return null;
+    }
 
+    private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         // All other methods: must have a return statement with the correct type
         var types = TypeUtils.with(table);
         var signature = types.getMethodDeclSignature(method);
