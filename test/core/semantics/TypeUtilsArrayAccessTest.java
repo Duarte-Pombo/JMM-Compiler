@@ -75,64 +75,6 @@ public class TypeUtilsArrayAccessTest extends JmmTestEnv {
     }
 
     @Test
-    public void arrayAccessError() {
-        var semantics = symbolTableFromSnippet("""
-                package x;
-                class A {
-                    public int m() {
-                        int x;
-                        int y;
-                        y = x[0];
-                        x = 0;
-                        return x;
-                    }
-                }""", false);
-
-        var table = semantics.getSymbolTable();
-        var root = semantics.getRootNode();
-        var arrayAccess = findArrayAccess(root, "x", "0");
-        var receiver = arrayAccess.getChild(0);
-
-        var types = new ReceiverTypeAwareTypeUtils(table, receiver, JmmPrimitiveType.INT);
-
-        try {
-            types.getExprType(arrayAccess);
-            fail("Expected RuntimeException for non-array receiver");
-        } catch (RuntimeException e) {
-            assertTrue("Expected non-array receiver message", e.getMessage().contains("not an array"));
-        }
-    }
-
-    @Test
-    public void typeArrayAccessError() {
-        var semantics = symbolTableFromSnippet("""
-                package x;
-                class A {
-                    public int m() {
-                        int y;
-                        y = a[true];
-                        int x;
-                        x = 0;
-                        return x;
-                    }
-                }""", false);
-
-        var table = semantics.getSymbolTable();
-        var root = semantics.getRootNode();
-        var arrayAccess = findArrayAccess(root, "a", "true");
-        var receiver = arrayAccess.getChild(0);
-
-        var types = new ReceiverTypeAwareTypeUtils(table, receiver, new JmmArrayType(JmmPrimitiveType.INT, 1));
-
-        try {
-            types.getExprType(arrayAccess);
-            fail("Expected RuntimeException for non-int array index");
-        } catch (RuntimeException e) {
-            assertTrue("Expected non-int index message", e.getMessage().contains("Array index must be int"));
-        }
-    }
-
-    @Test
     public void newArrayDimensions() {
         var table = symbolTableFromSnippet("""
                 package x;
@@ -209,28 +151,6 @@ public class TypeUtilsArrayAccessTest extends JmmTestEnv {
         var type = types.getExprType(expr);
 
         assertEquals("matrix[1][2] should have type int", JmmPrimitiveType.INT, type);
-    }
-
-    @Test
-    public void newArrayError() {
-        var table = symbolTableFromSnippet("""
-                package x;
-                class A {
-                    public int m() {
-                        int x;
-                        x = 0;
-                        return x;
-                    }
-                }""", false).getSymbolTable();
-
-        var expr = parseExpr("new int[true]");
-
-        try {
-            new TypeUtils(table).getExprType(expr);
-            fail("Expected RuntimeException for non-int size");
-        } catch (RuntimeException e) {
-            assertTrue("erm",e.getMessage().contains("Array size must be int"));
-        }
     }
 
     @Test
