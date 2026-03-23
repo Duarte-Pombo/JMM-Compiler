@@ -51,7 +51,6 @@ NEW: 'new' ;
 THIS: 'this';
 TRUE : 'true' ;
 FALSE : 'false' ;
-STRING : 'string' ;
 INTEGER : '0' | [1-9][0-9]* ;
 ID : [$_a-zA-Z][$_a-zA-Z0-9]* ;
 WS : [ \t\n\r\f]+ -> skip ;
@@ -90,8 +89,6 @@ param
 
 type
     : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
-    | val = STRING (dims += OPEN_BRACKET CLOSE_BRACKET)+ #StringArray
-    | val = ID (dims += OPEN_BRACKET CLOSE_BRACKET)+  #IDArray
     | val = BOOLEAN #Boolean
     | val = INT     #Int
     | val = VOID    #Void
@@ -106,9 +103,9 @@ methodDecl locals[boolean isStatic=false]
         OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #GeneralMethodDecl
     | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
-        (STATIC {$isStatic=true;})?
+        STATIC {$isStatic=true;}
         VOID name=ID
-        OPEN_PARENTHESES STRING OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
+        OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
         OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #MainMethodDecl
     ;
