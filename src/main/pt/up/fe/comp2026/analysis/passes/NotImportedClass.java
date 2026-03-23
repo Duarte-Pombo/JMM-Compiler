@@ -15,7 +15,7 @@ public class NotImportedClass extends AnalysisVisitorWithTable {
 
     @Override
     public void buildVisitor() {
-        addVisit(JmmKind.METHOD_DECL, this::visitMethodDecl);
+        addVisit(JmmKind.GENERAL_METHOD_DECL, this::visitMethodDecl);
         addVisit(JmmKind.VAR_DECL, this::visitVarDecl);
         addVisit(JmmKind.NEW_OBJECT, this::visitNewObject);
     }
