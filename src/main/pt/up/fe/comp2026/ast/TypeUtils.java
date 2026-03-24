@@ -224,11 +224,6 @@ public class TypeUtils {
 
         var methodName = methodCallExpr.get("name");
         var recvType = getExprType(methodCallExpr.getChild(0));
-
-        if (!recvType.isClass()) {
-            throw new RuntimeException("Method call receiver is not a class type: " + recvType);
-        }
-
         var recvClass = recvType.asClass().fullyQualifiedName();
         var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
 
