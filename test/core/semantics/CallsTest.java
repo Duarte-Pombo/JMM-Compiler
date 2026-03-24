@@ -58,6 +58,23 @@ public class CallsTest extends JmmTestEnv {
                 errors.stream().anyMatch(report -> report.getMessage().contains("Method not found")));
     }
 
+    @Test
+    public void methodCallOnPrimitiveReceiverShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        1.foo();
+                        return 0;
+                    }
+                }""");
+
+        var errors = errorReports(semantics);
+        assertTrue("Expected at least one semantic error", !errors.isEmpty());
+        assertTrue("Expected invalid receiver message",
+                errors.stream().anyMatch(report -> report.getMessage().contains("receiver is not a class type")));
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
