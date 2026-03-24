@@ -31,6 +31,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
                 new NotImportedClass(table),
                 new IdentifierResolution(),
                 new Calls(),
+                new NewObjectArguments(table),
                 new BinaryExpressions(),
                 new Conditions(),
                 new This(),
