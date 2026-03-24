@@ -103,17 +103,16 @@ public class ArraySemantics extends AnalysisVisitor {
         var arrayType = types.getExprType(array);
 
         if (!arrayType.isArray()) {
-            addReport(newError(arrayAccess, "Variable '" + array + "' is not an array."));
+            addReport(newError(array, "Array access is done over a non-array type."));
             return null;
         }
 
         var idx_expr = arrayAccess.getChild(1);
-        var idx = types.getExprType(idx_expr);
+        var idxType = types.getExprType(idx_expr);
 
-        if (!types.isAssignable(idx, expectedType)) {
-            addReport(newError(arrayAccess, "Expr '" + idx_expr + "is not an integer."));
+        if (!types.isAssignable(idxType, expectedType)) {
+            addReport(newError(idx_expr, "Array access index must be an integer. Got '" + idxType.print() + "'."));
         }
-
 
         return null;
     }

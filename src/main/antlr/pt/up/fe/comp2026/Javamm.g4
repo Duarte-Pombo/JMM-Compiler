@@ -122,8 +122,8 @@ stmt
         CLOSE_PARENTHESES stmt 
           #ForStmt
     | expr SEMI #ExprStmt
-    | var = expr EQUALS expr SEMI #AssignStmt
     | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
+    | var = expr EQUALS expr SEMI #AssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
 

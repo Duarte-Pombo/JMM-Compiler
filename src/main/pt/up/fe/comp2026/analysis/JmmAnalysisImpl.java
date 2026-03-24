@@ -35,6 +35,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
                 new Conditions(),
                 new This(),
                 new Assignments(),
+                new ArraySemantics(),
                 new ReturnStatement()
         );
     }
