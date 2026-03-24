@@ -40,7 +40,7 @@ public class Conditions extends AnalysisVisitor {
             return null;
         }
 
-        var wrapperNode = conditionWrapper.get(0);
+        var wrapperNode = conditionWrapper.getFirst();
 
         var conditionNode = wrapperNode.getChild(0);
 
