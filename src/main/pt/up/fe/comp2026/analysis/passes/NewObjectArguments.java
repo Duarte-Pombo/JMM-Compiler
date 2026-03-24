@@ -33,7 +33,7 @@ public class NewObjectArguments extends AnalysisVisitorWithTable {
             return null;
         }
 
-        if (isCurrentClass(className)) {
+        if (types.isCurrentClassName(className)) {
             if (!argTypes.isEmpty()) {
                 addReport(newError(newObjectExpr,
                         "Constructor '" + formatConstructorSignature(className, argTypes)
@@ -42,7 +42,7 @@ public class NewObjectArguments extends AnalysisVisitorWithTable {
             return null;
         }
 
-        var runtimeClass = resolveRuntimeClass(className);
+        var runtimeClass = types.resolveRuntimeClass(className);
         if (runtimeClass.isEmpty()) {
             return null;
         }
@@ -126,41 +126,6 @@ public class NewObjectArguments extends AnalysisVisitorWithTable {
         }
 
         return Optional.of(new JmmArrayType(baseType.get(), dimensions));
-    }
-
-    private Optional<Class<?>> resolveRuntimeClass(String className) {
-        var importedFqName = table.getImportedFullyQualifiedName(className);
-        if (importedFqName.isPresent()) {
-            return tryLoadClass(importedFqName.get());
-        }
-
-        return table.getImplicitImport(className)
-                .flatMap(symbolTable -> tryLoadClass(symbolTable.getFullyQualifiedName()));
-    }
-
-    private Optional<Class<?>> tryLoadClass(String fullyQualifiedName) {
-        try {
-            return Optional.of(Class.forName(fullyQualifiedName));
-        } catch (ClassNotFoundException e) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isCurrentClass(String className) {
-        return sameClass(className, table.getClassName()) || sameClass(className, table.getFullyQualifiedName());
-    }
-
-    private boolean sameClass(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-
-        return left.equals(right) || simpleName(left).equals(simpleName(right));
-    }
-
-    private String simpleName(String className) {
-        var lastDot = className.lastIndexOf('.');
-        return lastDot >= 0 ? className.substring(lastDot + 1) : className;
     }
 
     private String formatConstructorSignature(String className, List<JmmType> argTypes) {

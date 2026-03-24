@@ -2,11 +2,8 @@ package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.report.Report;
-import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
-import pt.up.fe.comp2026.ast.NodeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 
@@ -32,11 +29,7 @@ public class This extends AnalysisVisitor {
 
         var isStaticMethod = currentMethod.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
         if (isStaticMethod) {
-            addReport(Report.newError(Stage.SEMANTIC,
-                    NodeUtils.getLine(thisNode),
-                    NodeUtils.getColumn(thisNode),
-                    "'this' cannot be used in a static function",
-                    null));
+            addReport(newError(thisNode, "'this' cannot be used in a static function"));
 
             return null;
         }
