@@ -11,6 +11,8 @@ public class ArraySemantics extends AnalysisVisitor {
     protected void buildVisitor() {
         addVisit(JmmKind.NEW_ARRAY_BY_EXTENSION, this::visitNewArrayByExtension);
         addVisit(JmmKind.NEW_ARRAY, this::visitNewArray);
+        addVisit(JmmKind.ARRAY_ASSIGN_STMT, this::visitArrayAssignStmt);
+        addVisit(JmmKind.ARRAY_ACCESS, this::visitArrayAccess);
     }
 
     private Void visitNewArrayByExtension(JmmNode newArrayByExtension, SymbolTable table) {
@@ -45,16 +47,9 @@ public class ArraySemantics extends AnalysisVisitor {
 
     private Void visitNewArray(JmmNode newArray, SymbolTable table) {
         var types = TypeUtils.with(table);
-
         var expectedType = TypeUtils.intType();
 
-        if (newArray.getChild(0).getChildren().isEmpty()) {
-            var message = "The first dimension must be determined as an integer. It was left empty";
-            addReport(newError(newArray.getChild(0), message));
-        }
-
-        for (JmmNode arrayDim : newArray.getChildren()) {
-            var expr = arrayDim.getChild(0);
+        for (JmmNode expr : newArray.getChildren()) {
             var exprType = types.getExprType(expr);
 
             if (!types.isAssignable(exprType, expectedType)) {
@@ -62,6 +57,64 @@ public class ArraySemantics extends AnalysisVisitor {
                 addReport(newError(expr, message));
             }
         }
+        return null;
+    }
+
+    private Void visitArrayAssignStmt(JmmNode arrayAssignStmt, SymbolTable table) {
+        var types = TypeUtils.with(table);
+        var expectedType = TypeUtils.intType();
+
+        String arrayName = arrayAssignStmt.get("var");
+
+        var arrayTypeOpt = types.getVariableType(arrayName, arrayAssignStmt);
+
+        if (arrayTypeOpt.isEmpty() || !arrayTypeOpt.get().isArray()) {
+            addReport(newError(arrayAssignStmt, "Variable '" + arrayName + "' is not an array."));
+            return null;
+        }
+
+        int numChildren = arrayAssignStmt.getNumChildren();
+
+        for (int i = 0; i < numChildren - 1; i++) {
+            var indexExpr = arrayAssignStmt.getChild(i);
+            var indexType = types.getExprType(indexExpr);
+
+            if (!types.isAssignable(indexType, expectedType)) {
+                addReport(newError(indexExpr, "Array access index must be an integer. Got '" + indexType.print() + "'."));
+            }
+        }
+
+        var assignedValueExpr = arrayAssignStmt.getChild(numChildren - 1);
+        var assignedValueType = types.getExprType(assignedValueExpr);
+
+        if (!types.isAssignable(assignedValueType, expectedType)) {
+            var message = "Cannot assign type '" + assignedValueType.print() + "' to array of base type 'int'.";
+            addReport(newError(assignedValueExpr, message));
+        }
+
+        return null;
+    }
+
+    private Void visitArrayAccess(JmmNode arrayAccess, SymbolTable table) {
+        var types = TypeUtils.with(table);
+        var expectedType = TypeUtils.intType();
+
+        var array = arrayAccess.getChild(0);
+        var arrayType = types.getExprType(array);
+
+        if (!arrayType.isArray()) {
+            addReport(newError(arrayAccess, "Variable '" + array + "' is not an array."));
+            return null;
+        }
+
+        var idx_expr = arrayAccess.getChild(1);
+        var idx = types.getExprType(idx_expr);
+
+        if (!types.isAssignable(idx, expectedType)) {
+            addReport(newError(arrayAccess, "Expr '" + idx_expr + "is not an integer."));
+        }
+
+
         return null;
     }
 }

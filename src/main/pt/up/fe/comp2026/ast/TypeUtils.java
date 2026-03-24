@@ -321,26 +321,9 @@ public class TypeUtils {
 
         var varName = varRefExpr.get("name");
 
-        var methodDecl = varRefExpr.getAncestor(METHOD_DECL)
-                .orElseThrow(() -> new RuntimeException("VarRef '" + varName + "' outside a method scope"));
-
-        var methodSignature = getMethodDeclSignature(methodDecl);
-        var method = table.getMethod(methodSignature)
-                .orElseThrow(() -> new RuntimeException("Could not resolve method for signature " + methodSignature));
-
-        var localVarType = method.getLocalVariable(varName).map(Symbol::type);
-        if (localVarType.isPresent()) {
-            return localVarType.get();
-        }
-
-        var paramType = method.getParameter(varName).map(Symbol::type);
-        if (paramType.isPresent()) {
-            return paramType.get();
-        }
-
-        var fieldType = table.getField(varName).map(Symbol::type);
-        if (fieldType.isPresent()) {
-            return fieldType.get();
+        var typeOpt = getVariableType(varName, varRefExpr);
+        if (typeOpt.isPresent()) {
+            return typeOpt.get();
         }
 
         if (varName.equals(table.getClassName()) || varName.equals(table.getFullyQualifiedName())) {
@@ -400,6 +383,25 @@ public class TypeUtils {
 
     public boolean isAssignable(JmmType sourceType, JmmType targetType) {
         return methodResolver.isAssignable(sourceType, targetType);
+    }
+
+    public Optional<JmmType> getVariableType(String varName, JmmNode scopeNode) {
+        var methodDecl = scopeNode.getAncestor(METHOD_DECL);
+
+        if (methodDecl.isPresent()) {
+            var methodSignature = getMethodDeclSignature(methodDecl.get());
+            var method = table.getMethod(methodSignature);
+
+            if (method.isPresent()) {
+                var localVar = method.get().getLocalVariable(varName).map(Symbol::type);
+                if (localVar.isPresent()) return localVar;
+
+                var param = method.get().getParameter(varName).map(Symbol::type);
+                if (param.isPresent()) return param;
+            }
+        }
+
+        return table.getField(varName).map(Symbol::type);
     }
 
 }

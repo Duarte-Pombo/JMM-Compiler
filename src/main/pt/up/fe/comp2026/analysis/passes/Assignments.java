@@ -41,6 +41,7 @@ public class Assignments extends AnalysisVisitor {
         var lType = types.getDeclaredType(varDecl);
         var rType = types.getExprType(varDecl.getChild(1));
 
+        
         if (types.isAssignable(rType, lType)) {
             return null;
         }
