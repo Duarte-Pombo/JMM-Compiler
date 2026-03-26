@@ -50,22 +50,19 @@ public class TypeUtils {
         return new JmmArrayType(new JmmClassType("String", false, false), 1);
     }
 
-    // Used by Opt
     public static JmmType convertType(JmmNode typeNode) {
         return convertType(typeNode, new ArrayList<>(), null);
     }
 
     public static JmmType convertType(JmmNode typeNode, List<String> imports, String currentClassFqName) {
         String kind = typeNode.getKind().toString();
-        int arrayDimensions = getArrayDimensions(typeNode);
 
-        return switch (kind) {
-            // Primitives
+        int arrayDimensions = getExplicitArrayDimensions(typeNode);
+
+        JmmType baseType = switch (kind) {
             case "INT" -> JmmPrimitiveType.INT;
             case "BOOLEAN" -> JmmPrimitiveType.fromString("boolean").orElseThrow();
             case "VOID" -> JmmPrimitiveType.fromString("void").orElseThrow();
-
-            // Custom Classes
             case "ID" -> {
                 String typeName = typeNode.get("val");
                 Optional<String> importFq = imports.stream().filter(i -> i.endsWith("." + typeName) || i.equals(typeName)).findFirst();
@@ -80,17 +77,10 @@ public class TypeUtils {
                     yield new JmmClassType(typeName, false, false);
                 }
             }
-
-            // Arrays
-            case "INTEGER_ARRAY" -> new JmmArrayType(JmmPrimitiveType.INT, arrayDimensions);
-
             default -> throw new UnsupportedOperationException("Unsupported type kind: " + kind);
         };
-    }
 
-    private static int getArrayDimensions(JmmNode arrayNode) {
-        int explicitDimensions = getExplicitArrayDimensions(arrayNode);
-        return explicitDimensions > 0 ? explicitDimensions : 1;
+        return arrayDimensions > 0 ? new JmmArrayType(baseType, arrayDimensions) : baseType;
     }
 
     private static int getExplicitArrayDimensions(JmmNode arrayNode) {
@@ -101,26 +91,6 @@ public class TypeUtils {
         return arrayNode.getObjectAsList("dims", String.class).size();
     }
 
-    public JmmType getStmtType(JmmNode stmt) {
-        STMT.checkOrThrow(stmt);
-        var voidType = JmmPrimitiveType.fromString("void").orElseThrow();
-
-        return switch (stmt.getKind()) {
-            case COMPOUND_STMT, IF_ELSE_STMT, WHILE_STMT, DO_WHILE_STMT, FOR_STMT, ASSIGN_STMT, ARRAY_ASSIGN_STMT ->
-                    voidType;
-            case EXPR_STMT -> getExprType(stmt.getChild(0));
-            case RETURN_STMT -> stmt.getChildren().isEmpty() ? voidType : getExprType(stmt.getChild(0));
-            default ->
-                    throw new UnsupportedOperationException("Can't compute type for statement kind '" + stmt.getKind() + "'");
-        };
-    }
-
-    /**
-     * Gets the {@link JmmType} of an arbitrary expression.
-     *
-     * @param expr
-     * @return
-     */
     public JmmType getExprType(JmmNode expr) {
         return switch (expr.getKind()) {
             case PARENTHESES_EXPR -> getExprType(expr.getChild(0));
@@ -128,15 +98,13 @@ public class TypeUtils {
             case METHOD_CALL -> getMethodCallType(expr);
             case IMPLICIT_CALL -> getImplicitCallType(expr);
             case FIELD_ACCESS -> getFieldAccessType(expr);
-            case NEGATION_EXPR -> booleanType();
-            case UNARY_EXPR -> intType();
+            case NEGATION_EXPR, BOOLEAN_LITERAL -> booleanType();
+            case UNARY_EXPR, INTEGER_LITERAL -> intType();
             case NEW_OBJECT -> getNewObjectType(expr);
             case NEW_ARRAY -> getNewArrayType(expr);
             case NEW_ARRAY_BY_EXTENSION -> getNewArrayByExtensionType(expr);
             case BINARY_EXPR -> getBinExprType(expr);
             case ARRAY -> getArrayType(expr);
-            case INTEGER_LITERAL -> intType();
-            case BOOLEAN_LITERAL -> booleanType();
             case VAR_REF_EXPR -> getVarExprType(expr);
             case THIS -> getThisType(expr);
             default ->
@@ -282,10 +250,8 @@ public class TypeUtils {
     }
 
     public Signature getMethodDeclSignature(JmmNode methodDecl) {
-        // Ensure given node is a MethodDecl
         METHOD_DECL.check(methodDecl);
 
-        // Get name of the method
         var methodName = methodDecl.get("name");
         var params = new ArrayList<JmmType>();
 
@@ -294,7 +260,6 @@ public class TypeUtils {
         } else {
             for (var paramNode : methodDecl.getChildren(JmmKind.PARAM)) {
                 var paramTypeNode = paramNode.getChildren().getFirst();
-                // We can use the 1-parameter convertType overload here safely
                 params.add(convertType(paramTypeNode));
             }
         }

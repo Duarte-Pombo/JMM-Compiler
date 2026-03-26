@@ -42,7 +42,7 @@ public class ReturnSemanticAnalysisTest extends pt.up.fe.comp.test.env.JmmTestEn
 
     @Test
     public void returnStatementSimple() {
-        setDescription("Testt that a return statement returns the correct type");
+        setDescription("Test that a return statement returns the correct type");
         semantics("ReturnSimpleFail.jmm", true);
         semantics("ReturnSimpleOk.jmm", false);
     }

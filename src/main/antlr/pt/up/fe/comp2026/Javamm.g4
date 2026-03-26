@@ -88,11 +88,10 @@ param
     ;
 
 type
-    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
-    | val = BOOLEAN #Boolean
-    | val = INT     #Int
-    | val = VOID    #Void
-    | val = ID      #Id
+    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)* #Int
+    | val = BOOLEAN (dims += OPEN_BRACKET CLOSE_BRACKET)* #Boolean
+    | val = VOID (dims += OPEN_BRACKET CLOSE_BRACKET)* #Void
+    | val = ID (dims += OPEN_BRACKET CLOSE_BRACKET)* #Id
     ;
 
 methodDecl locals[boolean isStatic=false]
