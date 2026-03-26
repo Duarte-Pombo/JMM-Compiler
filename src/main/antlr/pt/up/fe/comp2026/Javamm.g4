@@ -95,18 +95,18 @@ type
     ;
 
 methodDecl locals[boolean isStatic=false]
-    : (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)? 
+    :(visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
+             STATIC {$isStatic=true;}
+             VOID name=ID
+             OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
+             OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
+           #MainMethodDecl
+    | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
         (STATIC {$isStatic=true;})?
         typeNode=type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
         OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #GeneralMethodDecl
-    | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
-        STATIC {$isStatic=true;}
-        VOID name=ID
-        OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
-        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
-      #MainMethodDecl
     ;
 
 stmt
