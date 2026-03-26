@@ -38,7 +38,7 @@ public class NotImportedClass extends AnalysisVisitorWithTable {
     private Void visitNewObject(JmmNode newObjectExpr, SymbolTable symbolTable) {
         var className = newObjectExpr.get("name");
 
-        if (!isAvailableClassName(className)) {
+        if (!types.isAvailableClassName(className)) {
             addReport(newError(newObjectExpr, "Class '" + className + "' is not imported"));
         }
 
@@ -69,26 +69,6 @@ public class NotImportedClass extends AnalysisVisitorWithTable {
             return false;
         }
 
-        return isAvailableClassName(type.asClass().fullyQualifiedName());
-    }
-
-    private boolean isAvailableClassName(String className) {
-        return sameClass(className, table.getClassName())
-                || sameClass(className, table.getFullyQualifiedName())
-                || table.getImportedFullyQualifiedName(className).isPresent()
-                || table.isImplicitImport(className);
-    }
-
-    private boolean sameClass(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-
-        return left.equals(right) || simpleName(left).equals(simpleName(right));
-    }
-
-    private String simpleName(String className) {
-        var lastDot = className.lastIndexOf('.');
-        return lastDot >= 0 ? className.substring(lastDot + 1) : className;
+        return types.isAvailableClassName(type.asClass().fullyQualifiedName());
     }
 }

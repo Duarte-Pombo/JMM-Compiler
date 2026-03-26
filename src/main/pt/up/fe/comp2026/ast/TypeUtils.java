@@ -369,4 +369,49 @@ public class TypeUtils {
         return table.getField(varName).map(Symbol::type);
     }
 
+    public boolean isAvailableClassName(String className) {
+        return isCurrentClassName(className)
+                || table.getImportedFullyQualifiedName(className).isPresent()
+                || table.isImplicitImport(className);
+    }
+
+    public boolean isCurrentClassName(String className) {
+        return sameClass(className, table.getClassName()) || sameClass(className, table.getFullyQualifiedName());
+    }
+
+    public boolean isImportedOrImplicitClassName(String className) {
+        return table.getImportedFullyQualifiedName(className).isPresent() || table.isImplicitImport(className);
+    }
+
+    public Optional<Class<?>> resolveRuntimeClass(String className) {
+        var importedFqName = table.getImportedFullyQualifiedName(className);
+        if (importedFqName.isPresent()) {
+            return tryLoadClass(importedFqName.get());
+        }
+
+        return table.getImplicitImport(className)
+                .flatMap(symbolTable -> tryLoadClass(symbolTable.getFullyQualifiedName()));
+    }
+
+    public boolean sameClass(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+
+        return left.equals(right) || simpleName(left).equals(simpleName(right));
+    }
+
+    public String simpleName(String className) {
+        var lastDot = className.lastIndexOf('.');
+        return lastDot >= 0 ? className.substring(lastDot + 1) : className;
+    }
+
+    private Optional<Class<?>> tryLoadClass(String fullyQualifiedName) {
+        try {
+            return Optional.of(Class.forName(fullyQualifiedName));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
+    }
+
 }

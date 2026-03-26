@@ -2,10 +2,7 @@ package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.report.Report;
-import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
-import pt.up.fe.comp2026.ast.NodeUtils;
 import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 
@@ -19,17 +16,7 @@ public class Conditions extends AnalysisVisitor {
     }
 
     private Void visitCondition(JmmNode stmt, SymbolTable table) {
-        var conditionNode = stmt.getChild(0);
-        var conditionType = TypeUtils.with(table).getExprType(conditionNode);
-
-        if (conditionType.equals(TypeUtils.booleanType()) && !conditionType.isArray()) {
-            return null;
-        }
-
-        var message ="Condition expression must be of type boolean";
-        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(stmt),
-                NodeUtils.getColumn(stmt), message, null)
-        );
+        validateBooleanCondition(stmt, stmt.getChild(0), table);
         return null;
     }
 
@@ -44,16 +31,17 @@ public class Conditions extends AnalysisVisitor {
 
         var conditionNode = wrapperNode.getChild(0);
 
+        validateBooleanCondition(stmt, conditionNode, table);
+        return null;
+    }
+
+    private void validateBooleanCondition(JmmNode reportNode, JmmNode conditionNode, SymbolTable table) {
         var conditionType = TypeUtils.with(table).getExprType(conditionNode);
 
         if (conditionType.equals(TypeUtils.booleanType()) && !conditionType.isArray()) {
-            return null;
+            return;
         }
 
-        var message ="Condition expression must be of type boolean";
-        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(stmt),
-                NodeUtils.getColumn(stmt), message, null)
-        );
-        return null;
+        addReport(newError(reportNode, "Condition expression must be of type boolean"));
     }
 }

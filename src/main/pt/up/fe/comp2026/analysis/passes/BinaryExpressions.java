@@ -2,10 +2,7 @@ package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.report.Report;
-import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
-import pt.up.fe.comp2026.ast.NodeUtils;
 import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 
@@ -43,10 +40,7 @@ public class BinaryExpressions extends AnalysisVisitor {
                 break;
         }
 
-        var message = "Invalid binary expression";
-        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(binExpr),
-                NodeUtils.getColumn(binExpr), message, null)
-        );
+        addReport(newError(binExpr, "Invalid binary expression"));
         return null;
     }
 
@@ -60,10 +54,7 @@ public class BinaryExpressions extends AnalysisVisitor {
             return null;
         }
 
-        var message = "Invalid unary expression";
-        addReport(Report.newError(Stage.SEMANTIC, NodeUtils.getLine(unaryExpr),
-                NodeUtils.getColumn(unaryExpr), message, null)
-        );
+        addReport(newError(unaryExpr, "Invalid unary expression"));
         return null;
     }
 }

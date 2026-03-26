@@ -8,8 +8,6 @@ import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
-import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
-
 public class IdentifierResolution extends AnalysisVisitor {
 
     @Override
@@ -57,6 +55,7 @@ public class IdentifierResolution extends AnalysisVisitor {
     }
 
     private void checkIdentifierExists(String idName, JmmNode node, SymbolTable table) {
+        var types = TypeUtils.with(table);
         var methodNode = node.getAncestor(JmmKind.METHOD_DECL);
         var isStaticMethod = methodNode
                 .map(this::isStaticMethod)
@@ -67,8 +66,8 @@ public class IdentifierResolution extends AnalysisVisitor {
                 .orElse(false);
 
         var isField = !isStaticMethod && table.getField(idName).isPresent();
-        var isCurrentClass = idName.equals(table.getClassName()) || idName.equals(table.getFullyQualifiedName());
-        var isImportedClass = isImportedClass(idName, table);
+        var isCurrentClass = types.isCurrentClassName(idName);
+        var isImportedClass = types.isImportedOrImplicitClassName(idName);
 
         if (!isLocalOrParam && !isField && !isCurrentClass && !isImportedClass) {
             addReport(newError(node, "Variable '" + idName + "' does not exist."));
@@ -95,21 +94,14 @@ public class IdentifierResolution extends AnalysisVisitor {
                 .anyMatch(local -> idName.equals(local.get("name")));
     }
 
-    private boolean isImportedClass(String idName, SymbolTable table) {
-        if (!(table instanceof JmmSymbolTable jmmTable)) {
-            return false;
-        }
-
-        return jmmTable.getImportedFullyQualifiedName(idName).isPresent() || jmmTable.isImplicitImport(idName);
-    }
-
     private boolean isCurrentClassInstance(JmmNode receiver, SymbolTable table) {
         try {
-            JmmType receiverType = TypeUtils.with(table).getExprType(receiver);
+            var types = TypeUtils.with(table);
+            JmmType receiverType = types.getExprType(receiver);
 
             return receiverType.isClass()
                     && !receiverType.asClass().staticRef()
-                    && receiverType.asClass().fullyQualifiedName().equals(table.getFullyQualifiedName());
+                    && types.sameClass(receiverType.asClass().fullyQualifiedName(), table.getFullyQualifiedName());
         } catch (RuntimeException ignored) {
             return false;
         }
