@@ -32,13 +32,22 @@ public class Assignments extends AnalysisVisitor {
 
     private Void visitVarDecl(JmmNode varDecl, SymbolTable table) {
 
-        if (varDecl.getChildren().size() <= 1) {
-            return null;
-        }
+
 
         var types = TypeUtils.with(table);
 
         var lType = types.getDeclaredType(varDecl);
+
+        if (lType.print().contains("void")) {
+            addReport(newError(varDecl, "Cannot use 'void' as a base type."));
+            return null;
+        }
+
+        // Rearranged to allow for array validation
+        if (varDecl.getChildren().size() <= 1) {
+            return null;
+        }
+
         var rType = types.getExprType(varDecl.getChild(1));
 
         if (types.isAssignable(rType, lType)) {

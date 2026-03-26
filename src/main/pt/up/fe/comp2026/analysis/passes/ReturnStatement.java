@@ -1,6 +1,7 @@
 package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
+import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
@@ -16,15 +17,18 @@ public class ReturnStatement extends AnalysisVisitor {
 
     private Void visitMainMethodDecl(JmmNode method, SymbolTable symbolTable) {
         var returnStmts = method.getDescendants(JmmKind.RETURN_STMT);
-        if (!returnStmts.isEmpty()) {
-            addReport(newError(returnStmts.get(0),
-                    "Method 'main' must not have a return statement."));
+
+        for (var returnStmt : returnStmts) {
+            if (returnStmt.getNumChildren() > 0) {
+                addReport(newError(returnStmt,
+                        "Method 'main' cannot return a value."));
+            }
         }
+        
         return null;
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
-        // All other methods: must have a return statement with the correct type
         var types = TypeUtils.with(table);
         var signature = types.getMethodDeclSignature(method);
         var methodOpt = table.getMethod(signature);
@@ -35,8 +39,13 @@ public class ReturnStatement extends AnalysisVisitor {
 
         var declaredReturnType = methodOpt.get().returnType();
 
-        // void methods don't need a return statement
-        if (declaredReturnType.equals(pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType.VOID)) {
+        if (declaredReturnType.equals(JmmPrimitiveType.VOID)) {
+            for (var returnStmt : method.getDescendants(JmmKind.RETURN_STMT)) {
+                if (returnStmt.getNumChildren() > 0) {
+                    addReport(newError(returnStmt,
+                            "Void method '" + signature + "' cannot return a value."));
+                }
+            }
             return null;
         }
 

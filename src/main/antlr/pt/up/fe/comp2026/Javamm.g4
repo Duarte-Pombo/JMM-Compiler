@@ -88,26 +88,25 @@ param
     ;
 
 type
-    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ #IntegerArray
-    | val = BOOLEAN #Boolean
-    | val = INT     #Int
-    | val = VOID    #Void
-    | val = ID      #Id
+    : val = INT (dims += OPEN_BRACKET CLOSE_BRACKET)* #Int
+    | val = BOOLEAN (dims += OPEN_BRACKET CLOSE_BRACKET)* #Boolean
+    | val = VOID (dims += OPEN_BRACKET CLOSE_BRACKET)* #Void
+    | val = ID (dims += OPEN_BRACKET CLOSE_BRACKET)* #Id
     ;
 
 methodDecl locals[boolean isStatic=false]
-    : (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)? 
+    :(visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
+             STATIC {$isStatic=true;}
+             VOID name=ID
+             OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
+             OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
+           #MainMethodDecl
+    | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
         (STATIC {$isStatic=true;})?
         typeNode=type name=ID
         OPEN_PARENTHESES (param (COMMA param)*)?  CLOSE_PARENTHESES
         OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
       #GeneralMethodDecl
-    | (visibility=PUBLIC | visibility=PRIVATE | visibility=PROTECTED)?
-        STATIC {$isStatic=true;}
-        VOID name=ID
-        OPEN_PARENTHESES ID OPEN_BRACKET CLOSE_BRACKET args=ID CLOSE_PARENTHESES
-        OPEN_BRACES (varDecl | stmt)* CLOSE_BRACES
-      #MainMethodDecl
     ;
 
 stmt
@@ -122,8 +121,8 @@ stmt
         CLOSE_PARENTHESES stmt 
           #ForStmt
     | expr SEMI #ExprStmt
-    | var = expr EQUALS expr SEMI #AssignStmt
     | var = ID (OPEN_BRACKET expr CLOSE_BRACKET)+ EQUALS expr SEMI #ArrayAssignStmt
+    | var = expr EQUALS expr SEMI #AssignStmt
     | RETURN expr? SEMI #ReturnStmt
     ;
 
@@ -139,7 +138,7 @@ expr
     | op= NOT expr #NegationExpr
     | op=(PLUS | MINUS | INC | DEC) expr #UnaryExpr
     | NEW name=ID OPEN_PARENTHESES (expr (COMMA expr)*)? CLOSE_PARENTHESES #NewObject
-    | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ #NewArray
+    | NEW INT (OPEN_BRACKET expr CLOSE_BRACKET)+ (OPEN_BRACKET CLOSE_BRACKET)* #NewArray
     | NEW INT (dims += OPEN_BRACKET CLOSE_BRACKET)+ arrayInit #NewArrayByExtension
     | expr op= (MULTI | DIVISION | MOD) expr #BinaryExpr
     | expr op= (PLUS | MINUS) expr #BinaryExpr
@@ -157,3 +156,4 @@ expr
 
 
 forCondition : expr ;
+
