@@ -66,12 +66,19 @@ public class ArraySemantics extends AnalysisVisitor {
 
         String arrayName = arrayAssignStmt.get("var");
 
+        // 1. Declare and fetch arrayTypeOpt FIRST
         var arrayTypeOpt = types.getVariableType(arrayName, arrayAssignStmt);
 
+        // 2. Check if it exists and is an array
         if (arrayTypeOpt.isEmpty() || !arrayTypeOpt.get().isArray()) {
             addReport(newError(arrayAssignStmt, "Variable '" + arrayName + "' is not an array."));
             return null;
         }
+
+        var arrayType = arrayTypeOpt.get();
+
+        var expectedElementType = ((pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) arrayType).itemType();
+
 
         int numChildren = arrayAssignStmt.getNumChildren();
 
@@ -87,7 +94,7 @@ public class ArraySemantics extends AnalysisVisitor {
         var assignedValueExpr = arrayAssignStmt.getChild(numChildren - 1);
         var assignedValueType = types.getExprType(assignedValueExpr);
 
-        if (!types.isAssignable(assignedValueType, expectedType)) {
+        if (!types.isAssignable(assignedValueType, expectedElementType)) {
             var message = "Cannot assign type '" + assignedValueType.print() + "' to array of base type 'int'.";
             addReport(newError(assignedValueExpr, message));
         }
