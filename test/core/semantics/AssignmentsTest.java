@@ -188,6 +188,41 @@ public class AssignmentsTest extends JmmTestEnv {
         assertEquals("aaa",1, errors.size());
     }
 
+    @Test
+    public void invalidForInitAssignmentShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m(boolean value) {
+                        int res;
+                        for(res = value; 0 < res; res = res - 1) {
+                        }
+                        return res;
+                    }
+                }""");
+
+        var errors = assignmentErrors(semantics);
+        assertEquals("aaa",1, errors.size());
+    }
+
+    @Test
+    public void invalidForUpdateAssignmentShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m(boolean value) {
+                        int res;
+                        res = 5;
+                        for(; 0 < res; res = value) {
+                        }
+                        return res;
+                    }
+                }""");
+
+        var errors = assignmentErrors(semantics);
+        assertEquals("aaa",1, errors.size());
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
