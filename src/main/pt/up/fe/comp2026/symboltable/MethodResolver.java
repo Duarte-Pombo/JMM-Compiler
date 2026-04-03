@@ -106,6 +106,11 @@ public class MethodResolver {
             return true;
         }
 
+        var runtimeAssignable = isRuntimeAssignable(sourceClassName, targetClassName);
+        if (runtimeAssignable.isPresent()) {
+            return runtimeAssignable.get();
+        }
+
         var sourceTable = getClassSymbolTable(sourceClassName);
         if (sourceTable.isEmpty()) {
             return false;
@@ -125,6 +130,36 @@ public class MethodResolver {
         }
 
         return isSameClassOrSubclass(superClassName, targetClassName);
+    }
+
+    private Optional<Boolean> isRuntimeAssignable(String sourceClassName, String targetClassName) {
+        var sourceRuntimeClass = resolveRuntimeClass(sourceClassName);
+        var targetRuntimeClass = resolveRuntimeClass(targetClassName);
+
+        if (sourceRuntimeClass.isEmpty() || targetRuntimeClass.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(targetRuntimeClass.get().isAssignableFrom(sourceRuntimeClass.get()));
+    }
+
+    private Optional<Class<?>> resolveRuntimeClass(String className) {
+        if (className == null || sameClass(className, table.getFullyQualifiedName())) {
+            return Optional.empty();
+        }
+
+        var directClass = table.importer.tryClassOf(className);
+        if (directClass.isPresent()) {
+            return directClass;
+        }
+
+        var importedClass = table.getImportedFullyQualifiedName(className)
+                .flatMap(table.importer::tryClassOf);
+        if (importedClass.isPresent()) {
+            return importedClass;
+        }
+
+        return table.importer.loadImplicit(className);
     }
 
     private boolean sameClass(String left, String right) {
