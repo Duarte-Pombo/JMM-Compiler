@@ -1,4 +1,4 @@
-package core.semantics;
+package extensions;
 
 import org.junit.Test;
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
@@ -9,21 +9,11 @@ import pt.up.fe.comp2026.analysis.JmmAnalysisImpl;
 
 import static org.junit.Assert.*;
 
-/**
- * Tests for the "Arbitrary Position" extension:
- * fields and methods may be declared in any order inside a class body,
- * and all members must be visible to every method regardless of
- * declaration order.
- */
 public class ArbitraryPositionTest extends JmmTestEnv {
 
     public ArbitraryPositionTest() {
         super("", "");
     }
-
-    // -----------------------------------------------------------------------
-    // Symbol-table completeness tests
-    // -----------------------------------------------------------------------
 
     /**
      * A field declared AFTER a method must appear in the symbol table.
@@ -117,10 +107,6 @@ public class ArbitraryPositionTest extends JmmTestEnv {
                 .toList();
         assertEquals("Expected 2 methods", 2, methods.size());
     }
-
-    // -----------------------------------------------------------------------
-    // Semantic-analysis tests — field access across arbitrary order
-    // -----------------------------------------------------------------------
 
     /**
      * A method declared BEFORE its field must be able to read that field
@@ -241,10 +227,6 @@ public class ArbitraryPositionTest extends JmmTestEnv {
 
         assertEquals("Expected 0 errors", 0, result.getReports(ReportType.ERROR).size());
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private SymbolTable buildSymbolTable(String code) {
         var parserResult = parseSnippet(code);
