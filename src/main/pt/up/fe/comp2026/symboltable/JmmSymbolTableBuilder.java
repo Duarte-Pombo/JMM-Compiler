@@ -60,7 +60,7 @@ public class JmmSymbolTableBuilder {
 
         // New additions
         // Import
-        var importDecls = root.getChildren(IMPORT_DECL); //.getFirst().get(JmmAttributes.IMPORT_DECLARATION.PATH);
+        var importDecls = root.getChildren(IMPORT_DECL);
         var importedClassPaths = new HashMap<String, String>();
         for (var importNode : importDecls) {
             var pathList = importNode.getObjectAsList("path", String.class);
@@ -79,13 +79,11 @@ public class JmmSymbolTableBuilder {
             }
             if (!imports.contains(fullImport)) { this.imports.add(fullImport); }
         }
-        
 
         // Given code
         var packageDecl = root.getChildren(PACKAGE_DECL).getFirst();
         var packagePathList = packageDecl.getObjectAsList("path", String.class);
         var packagePath = String.join(".", packagePathList);
-
 
         var classDecl = root.getObject("classNode", JmmNode.class);
         SpecsCheck.checkArgument(CLASS_DECL.check(classDecl), () -> "Expected a class declaration: " + classDecl);
