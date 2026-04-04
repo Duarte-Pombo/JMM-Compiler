@@ -13,6 +13,14 @@ public class Conditions extends AnalysisVisitor {
         addVisit(JmmKind.IF_ELSE_STMT, this::visitCondition);
         addVisit(JmmKind.WHILE_STMT, this::visitCondition);
         addVisit(JmmKind.FOR_STMT,this::visitCondFor);
+        addVisit(JmmKind.DO_WHILE_STMT, this::visitDoWhile);
+    }
+
+    private Void visitDoWhile(JmmNode stmt, SymbolTable table) {
+        if (stmt.getNumChildren() > 1) {
+            validateBooleanCondition(stmt, stmt.getChild(1), table);
+        }
+        return null;
     }
 
     private Void visitCondition(JmmNode stmt, SymbolTable table) {

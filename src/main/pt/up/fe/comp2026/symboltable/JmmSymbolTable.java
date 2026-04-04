@@ -38,8 +38,15 @@ public class JmmSymbolTable extends AJmmSymbolTable {
         this.imports = imports;
         this.classQualifiedName = classQualifiedName;
         this.superQualifiedName = superQualifiedNameName;
-        this.fields = fields.stream().collect(Collectors.toMap(Symbol::name, s -> s));
-        this.methods = methods.stream().collect(Collectors.toMap(MethodSymbol::signature, m -> m));
+        this.fields = new LinkedHashMap<>();
+        for (Symbol f : fields) {
+            this.fields.put(f.name(), f);
+        }
+
+        this.methods = new LinkedHashMap<>();
+        for (MethodSymbol m : methods) {
+            this.methods.put(m.signature(), m);
+        }
         this.returnTypes = returnTypes;
         this.params = params;
         this.locals = locals;

@@ -149,7 +149,12 @@ public class TypeUtils {
     private JmmType getNewArrayType(JmmNode newArrayExpr) {
         NEW_ARRAY.checkOrThrow(newArrayExpr);
 
-        return new JmmArrayType(intType(), newArrayExpr.getChildren().size());
+        int dimensions = newArrayExpr.getChildren().size();
+        if (newArrayExpr.getAttributes().contains("dims")) {
+            dimensions = newArrayExpr.getObjectAsList("dims", String.class).size();
+        }
+
+        return new JmmArrayType(intType(), dimensions);
     }
 
     private JmmType getNewArrayByExtensionType(JmmNode newArrayByExtensionExpr) {
