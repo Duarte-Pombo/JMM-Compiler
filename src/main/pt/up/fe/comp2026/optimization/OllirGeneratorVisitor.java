@@ -15,6 +15,7 @@ import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.specs.util.utilities.StringLines;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
@@ -162,8 +163,13 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         // params
         // TODO: Hardcoded for a single parameter, needs to be expanded
-        var paramsCode = visit(node.getChild(1));
-        code.append("(" + paramsCode + ")");
+        // DONE - Andre
+        var paramsCode = currentMethod.parameters().stream().map(param -> {
+            var paramName = ollirTypes.sanitizeId(param.name()); // Protects against ollir reserved keywords
+            var paramType = ollirTypes.toOllirType(param.type());
+            return paramName + paramType;
+        }).collect(Collectors.joining(", "));
+        code.append("(").append(paramsCode).append(")");
 
         // type
         var retType = ollirTypes.toOllirType(currentMethod.returnType());//table.getReturnType(node.get("name")));
@@ -177,6 +183,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             code.append(stmtsCode);
         }
 
+        if (Objects.equals(retType, ".V")) {
+            if (stmts.isEmpty() || !Objects.equals(stmts.getLast().getKind().toString(), RETURN_STMT.toString())) {
+                code.append("   ret.V;\n");
+            }
+        }
         code.append(R_BRACKET);
         code.append(NL);
 

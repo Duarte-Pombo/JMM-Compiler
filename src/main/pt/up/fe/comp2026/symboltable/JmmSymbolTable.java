@@ -11,7 +11,7 @@ import pt.up.fe.specs.util.SpecsCheck;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class JmmSymbolTable extends AJmmSymbolTable {
+public class    JmmSymbolTable extends AJmmSymbolTable {
 
     private final List<String> imports;
     private final String classQualifiedName;
