@@ -40,6 +40,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(VAR_REF_EXPR, this::visitVarRef);
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
+        addVisit(BOOLEAN_LITERAL, this::visitBoolean);
     }
 
     private OllirExprResult visitInteger(JmmNode node, Void unused) {
@@ -49,6 +50,12 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(code);
     }
 
+    private OllirExprResult visitBoolean(JmmNode node, Void unused) {
+        var boolType = TypeUtils.booleanType();
+        String ollirBoolType = ollirTypes.toOllirType(boolType);
+        String value = "true".equals(node.get("value")) ? "1" : "0";
+        return new OllirExprResult(value + ollirBoolType);
+    }
 
     private OllirExprResult visitBinExpr(JmmNode node, Void unused) {
         var op = node.get("op");
