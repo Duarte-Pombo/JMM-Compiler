@@ -1,6 +1,7 @@
 package pt.up.fe.comp2026.optimization;
 
 import pt.up.fe.comp.jmm.analysis.table.MethodSymbol;
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
@@ -56,6 +57,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         addVisit(PROGRAM, this::visitProgram);
         addVisit(PACKAGE_DECL, this::visitPackageDecl);
+        addVisit(IMPORT_DECL, this::visitImportDecl);
+        addVisit(IMPORT_DECLARATION, this::visitImportDecl);
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(VAR_DECL, this::simpleVarDecl);
         addVisit(PARAM, this::visitParam);
@@ -78,6 +81,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String visitPackageDecl(JmmNode packageDecl, Void unused) {
         return "package " + String.join(".", packageDecl.getObjectAsList("path", String.class)) + ";\n";
+    }
+
+    private String visitImportDecl(JmmNode importDecl, Void unused) {
+        return "import " + String.join(".", importDecl.getObjectAsList("path", String.class)) + ";\n";
     }
 
 
@@ -195,9 +202,17 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         code.append(NL);
         code.append(table.getClassName());
+        node.getOptional("parent").ifPresent(parent -> code.append(" extends ").append(parent));
 
         code.append(L_BRACKET);
         code.append(NL);
+
+        for (Symbol field : table.getFields()) {
+            code.append(".field ")
+                    .append(ollirTypes.sanitizeId(field.name()))
+                    .append(ollirTypes.toOllirType(field.type()))
+                    .append(END_STMT);
+        }
         code.append(NL);
 
 
