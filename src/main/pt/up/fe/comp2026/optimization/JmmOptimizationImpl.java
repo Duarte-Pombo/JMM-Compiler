@@ -1,33 +1,132 @@
 package pt.up.fe.comp2026.optimization;
 
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
+import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 
-
+import java.util.ArrayList;
 import java.util.Collections;
+
+import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
     @Override
     public OllirResult toOllir(JmmSemanticsResult semanticsResult) {
+        var loweredSemantics = transformAst(semanticsResult);
 
         // Create visitor that will generate the OLLIR code
-        var visitor = new OllirGeneratorVisitor(semanticsResult.getSymbolTable());
+        var visitor = new OllirGeneratorVisitor(loweredSemantics.getSymbolTable());
 
         // Visit the AST and obtain OLLIR code
-        var ollirCode = visitor.visit(semanticsResult.getRootNode());
+        var ollirCode = visitor.visit(loweredSemantics.getRootNode());
 
 //        System.out.println("\nOLLIR:\n\n" + ollirCode);
 
-        return new OllirResult(semanticsResult, ollirCode, Collections.emptyList());
+        return new OllirResult(loweredSemantics, ollirCode, Collections.emptyList());
     }
 
     @Override
     public JmmSemanticsResult transformAst(JmmSemanticsResult semanticsResult) {
+        var root = semanticsResult.getRootNode();
+        var forStmts = new ArrayList<>(root.getDescendants(FOR_STMT));
 
-        //TODO: Do your AST-based optimizations here
+        for (var forStmt : forStmts) {
+            convertForStmt(forStmt);
+        }
+
         return semanticsResult;
+    }
+
+    private void convertForStmt(JmmNode forStmt) {
+        int childIndex = 0;
+
+        JmmNode initAssign = null;
+        if (forStmt.getOptional(JmmAttributes.FOR_STMT.INIT_VAR).isPresent()) {
+            var initVar = forStmt.get(JmmAttributes.FOR_STMT.INIT_VAR);
+            var initExpr = forStmt.getChild(childIndex++);
+            initAssign = buildAssignStmt(initVar, initExpr);
+        }
+
+        JmmNode conditionExpr;
+        if (childIndex < forStmt.getNumChildren() && forStmt.getChild(childIndex).isInstance(FOR_CONDITION)) {
+            conditionExpr = forStmt.getChild(childIndex).getChild(0);
+            childIndex++;
+        } else {
+            var trueLiteral = new JmmNodeImpl(BOOLEAN_LITERAL);
+            trueLiteral.put(JmmAttributes.BOOLEAN_LITERAL.VALUE, "true");
+            conditionExpr = trueLiteral;
+        }
+
+        JmmNode updateAssign = null;
+        var hasUpdateVar = forStmt.getOptional(JmmAttributes.FOR_STMT.UPDATE_VAR).isPresent();
+        var hasIncDecUpdate = hasUpdateVar && forStmt.getOptional(JmmAttributes.FOR_STMT.OP).isPresent();
+        var hasAssignmentUpdate = hasUpdateVar && forStmt.getOptional(JmmAttributes.FOR_STMT.OP).isEmpty();
+
+        if (hasIncDecUpdate) {
+            var updateVar = forStmt.get(JmmAttributes.FOR_STMT.UPDATE_VAR);
+            var op = forStmt.get(JmmAttributes.FOR_STMT.OP);
+            updateAssign = buildIncDecAssignStmt(updateVar, op);
+        } else if (hasAssignmentUpdate && childIndex < forStmt.getNumChildren() - 1) {
+            var updateVar = forStmt.get(JmmAttributes.FOR_STMT.UPDATE_VAR);
+            var updateExpr = forStmt.getChild(childIndex++);
+            updateAssign = buildAssignStmt(updateVar, updateExpr);
+        }
+
+        var originalBody = forStmt.getChild(forStmt.getNumChildren() - 1);
+        var transformedBody = new JmmNodeImpl(COMPOUND_STMT);
+        transformedBody.add(originalBody);
+        if (updateAssign != null) {
+            transformedBody.add(updateAssign);
+        }
+
+        var whileNode = new JmmNodeImpl(WHILE_STMT);
+        whileNode.add(conditionExpr);
+        whileNode.add(transformedBody);
+
+        if (initAssign == null) {
+            forStmt.replace(whileNode);
+            return;
+        }
+
+        var lowered = new JmmNodeImpl(COMPOUND_STMT);
+        lowered.add(initAssign);
+        lowered.add(whileNode);
+        forStmt.replace(lowered);
+    }
+
+    private JmmNode buildAssignStmt(String varName, JmmNode rhsExpr) {
+        var lhs = new JmmNodeImpl(VAR_REF_EXPR);
+        lhs.put(JmmAttributes.VAR_REF_EXPR.NAME, varName);
+
+        var assign = new JmmNodeImpl(ASSIGN_STMT);
+        assign.add(lhs);
+        assign.add(rhsExpr);
+        return assign;
+    }
+
+    private JmmNode buildIncDecAssignStmt(String varName, String op) {
+        var lhs = new JmmNodeImpl(VAR_REF_EXPR);
+        lhs.put(JmmAttributes.VAR_REF_EXPR.NAME, varName);
+
+        var rhsVar = new JmmNodeImpl(VAR_REF_EXPR);
+        rhsVar.put(JmmAttributes.VAR_REF_EXPR.NAME, varName);
+
+        var one = new JmmNodeImpl(INTEGER_LITERAL);
+        one.put(JmmAttributes.INTEGER_LITERAL.VALUE, "1");
+
+        var binExpr = new JmmNodeImpl(BINARY_EXPR);
+        binExpr.put(JmmAttributes.BINARY_EXPR.OP, "++".equals(op) ? "+" : "-");
+        binExpr.add(rhsVar);
+        binExpr.add(one);
+
+        var assign = new JmmNodeImpl(ASSIGN_STMT);
+        assign.add(lhs);
+        assign.add(binExpr);
+        return assign;
     }
 
     @Override
