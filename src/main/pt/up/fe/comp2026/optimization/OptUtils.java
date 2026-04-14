@@ -59,12 +59,33 @@ public class OptUtils {
     }
 
     public String toOllirType(JmmType type) {
-            return "." + toPrimitiveOllirType((JmmPrimitiveType) type);
+        if (type instanceof JmmArrayType arrayType) {
+            return ".array".repeat(arrayType.dimension()) + toOllirType(arrayType.itemType());
+        }
+
+        if (type instanceof JmmPrimitiveType primitiveType) {
+            return "." + toPrimitiveOllirType(primitiveType);
+        }
+
+        if (type instanceof JmmClassType classType) {
+            return "." + simpleClassName(classType.fullyQualifiedName());
+        }
+
+        throw new IllegalArgumentException("Unsupported JMM type for OLLIR conversion: " + type);
     }
 
     private String toPrimitiveOllirType(JmmPrimitiveType type) {
-        System.out.println("[TODO] OptUtils.toPrimitiveOllirType(): Assumes it is always int, needs to be expanded");
-        return "i32";
+        return switch (type) {
+            case INT -> "i32";
+            case BOOLEAN -> "bool";
+            case VOID -> "V";
+            default -> throw new IllegalArgumentException("Unsupported primitive type for OLLIR conversion: " + type);
+        };
+    }
+
+    private String simpleClassName(String className) {
+        var lastDot = className.lastIndexOf('.');
+        return lastDot >= 0 ? className.substring(lastDot + 1) : className;
     }
 
     public String sanitizeId(String id) {
