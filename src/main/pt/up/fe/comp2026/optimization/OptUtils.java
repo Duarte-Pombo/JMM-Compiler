@@ -59,12 +59,23 @@ public class OptUtils {
     }
 
     public String toOllirType(JmmType type) {
-            return "." + toPrimitiveOllirType((JmmPrimitiveType) type);
+            if (type.isPrimitive()) {
+                return "." + toPrimitiveOllirType(type.asPrimitive());
+            } else if (type.isArray()) {
+                JmmArrayType arrType = type.asArray();
+                return ".array" + toOllirType(arrType.itemType());
+            }
+            else {
+                return "." + type.asClass().name();
+            }
     }
 
     private String toPrimitiveOllirType(JmmPrimitiveType type) {
-        System.out.println("[TODO] OptUtils.toPrimitiveOllirType(): Assumes it is always int, needs to be expanded");
-        return "i32";
+        return switch (type.toString()) {
+            case "BOOLEAN" -> "bool";
+            case "VOID" -> "V";
+            default -> "i32";
+        };
     }
 
     public String sanitizeId(String id) {
