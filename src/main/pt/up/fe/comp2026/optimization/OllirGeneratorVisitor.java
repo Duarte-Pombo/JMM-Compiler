@@ -67,6 +67,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
         addVisit(COMPOUND_STMT, this::visitCompoundStmt);
         addVisit(WHILE_STMT, this::visitWhileStmt);
+        addVisit(IF_ELSE_STMT, this::visitIfElseStmt);
 //        setDefaultVisit(this::defaultVisit);
     }
 
@@ -273,6 +274,27 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         return code.toString();
     }
+
+
+    private String visitIfElseStmt(JmmNode node, Void unused) {
+        StringBuilder code = new StringBuilder();
+        String thenBlock = visit(node.getChild(1));
+        String elseBlock = visit(node.getChild(2));
+
+        var trueLabel = nextLabel("if_true");
+        var exitLabel = nextLabel("if_exit");
+        var cond = exprVisitor.visit(node.getChild(0));
+
+        code.append(cond.getComputation());
+        code.append("if(").append(cond.getCode()).append(") goto ").append(trueLabel).append(END_STMT);
+        code.append(elseBlock);
+        code.append("goto ").append(exitLabel).append(END_STMT);
+        code.append(trueLabel).append(":").append(NL);
+        code.append(thenBlock);
+        code.append(exitLabel).append(":").append(NL);
+        return code.toString();
+    }
+
 
     /**
      * Default visitor. Visits every child node and return an empty string.
