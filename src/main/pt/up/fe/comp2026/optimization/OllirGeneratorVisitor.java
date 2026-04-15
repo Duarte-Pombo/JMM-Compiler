@@ -65,6 +65,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(METHOD_DECL, this::visitMethodDecl);
         addVisit(RETURN_STMT, this::visitReturn);
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
+        addVisit(COMPOUND_STMT, this::visitCompoundStmt);
+        addVisit(WHILE_STMT, this::visitWhileStmt);
 //        setDefaultVisit(this::defaultVisit);
     }
 
@@ -89,16 +91,13 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitAssignStmt(JmmNode node, Void unused) {
-        // TODO: Several hard-coded things, should be rewritten
+        var lhsNode = node.getChild(0);
+        var rhsNode = node.getChild(1);
+        var rhs = exprVisitor.visit(rhsNode);
 
-        var rhs = exprVisitor.visit(node.getChild(0));
-
-        // code to compute self
-        // statement has type of lhs
-        var varName = node.get(JmmAttributes.ASSIGN_STMT.VAR);
-        JmmType thisType = TypeUtils.intType();
-        String typeString = ollirTypes.toOllirType(thisType);
-        var varCode = ollirTypes.sanitizeId(varName) + typeString;
+        JmmType lhsType = types.getExprType(lhsNode);
+        String typeString = ollirTypes.toOllirType(lhsType);
+        var varCode = exprVisitor.visit(lhsNode).getCode();
 
 
         var code = new StringBuilder();
@@ -137,6 +136,34 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(expr.getCode());
 
         code.append(END_STMT);
+
+        return code.toString();
+    }
+
+    private String nextLabel(String prefix) {
+        return ollirTypes.nextTemp(prefix);
+    }
+
+    private String visitCompoundStmt(JmmNode node, Void unused) {
+        return node.getChildren(STMT).stream().map(this::visit).collect(Collectors.joining());
+    }
+
+    private String visitWhileStmt(JmmNode whileStmt, Void unused) {
+        var beginLabel = nextLabel("loop_begin");
+        var bodyLabel = nextLabel("loop_body");
+        var exitLabel = nextLabel("loop_exit");
+
+        var condExpr = exprVisitor.visit(whileStmt.getChild(0));
+
+        StringBuilder code = new StringBuilder();
+        code.append(beginLabel).append(":\n");
+        code.append(condExpr.getComputation());
+        code.append("if(").append(condExpr.getCode()).append(") goto ").append(bodyLabel).append(END_STMT);
+        code.append("goto ").append(exitLabel).append(END_STMT);
+        code.append(bodyLabel).append(":\n");
+        code.append(visit(whileStmt.getChild(1)));
+        code.append("goto ").append(beginLabel).append(END_STMT);
+        code.append(exitLabel).append(":\n");
 
         return code.toString();
     }
