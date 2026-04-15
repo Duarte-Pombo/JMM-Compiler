@@ -120,22 +120,23 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitReturn(JmmNode node, Void unused) {
+        if (currentMethod == null) {
+            throw new IllegalStateException("Return statement found outside of a method declaration");
+        }
 
-        System.out.println("[TODO] OllirGeneratorVisitor.visitReturn(): Assuming always returns an integer expression, needs to be expanded");
-        JmmType retType = TypeUtils.intType();
-        var expr = exprVisitor.visit(node.getChild(0));
-
+        JmmType retType = currentMethod.returnType();
+        String ollirRetType = ollirTypes.toOllirType(retType);
 
         StringBuilder code = new StringBuilder();
 
+        if (node.getNumChildren() == 0) {
+            code.append("ret").append(ollirRetType).append(END_STMT);
+            return code.toString();
+        }
+
+        var expr = exprVisitor.visit(node.getChild(0));
         code.append(expr.getComputation());
-        code.append("ret");
-        code.append(ollirTypes.toOllirType(retType));
-        code.append(SPACE);
-
-        code.append(expr.getCode());
-
-        code.append(END_STMT);
+        code.append("ret").append(ollirRetType).append(SPACE).append(expr.getCode()).append(END_STMT);
 
         return code.toString();
     }
