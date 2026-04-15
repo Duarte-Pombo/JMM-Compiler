@@ -39,8 +39,14 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     protected void buildVisitor() {
         addVisit(VAR_REF_EXPR, this::visitVarRef);
         addVisit(BINARY_EXPR, this::visitBinExpr);
+        addVisit(UNARY_EXPR, this::visitUnaryExpr);
+        addVisit(PARENTHESES_EXPR, this::visitParenthesesExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
+    }
+
+    private OllirExprResult visitParenthesesExpr(JmmNode node, Void unused) {
+        return visit(node.getChild(0));
     }
 
     private OllirExprResult visitInteger(JmmNode node, Void unused) {
@@ -83,6 +89,52 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
                 .append(rhs.getCode()).append(END_STMT);
 
         return new OllirExprResult(code, computation);
+    }
+
+    private OllirExprResult visitUnaryExpr(JmmNode node, Void unused) {
+        var op = node.get("op");
+        var valueNode = node.getChild(0);
+        var value = visit(valueNode);
+        var intType = ollirTypes.toOllirType(TypeUtils.intType());
+
+        if ("+".equals(op)) {
+            return value;
+        }
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(value.getComputation());
+
+        if ("-".equals(op)) {
+            var code = ollirTypes.nextTemp() + intType;
+            computation.append(code).append(SPACE)
+                    .append(ASSIGN).append(intType).append(SPACE)
+                    .append("0").append(intType).append(SPACE)
+                    .append("-").append(intType).append(SPACE)
+                    .append(value.getCode()).append(END_STMT);
+
+            return new OllirExprResult(code, computation);
+        }
+
+        if ("++".equals(op) || "--".equals(op)) {
+            var code = ollirTypes.nextTemp() + intType;
+            var numericOp = "++".equals(op) ? "+" : "-";
+
+            computation.append(code).append(SPACE)
+                    .append(ASSIGN).append(intType).append(SPACE)
+                    .append(value.getCode()).append(SPACE)
+                    .append(numericOp).append(intType).append(SPACE)
+                    .append("1").append(intType).append(END_STMT);
+
+            if (valueNode.isInstance(VAR_REF_EXPR)) {
+                computation.append(value.getCode()).append(SPACE)
+                        .append(ASSIGN).append(intType).append(SPACE)
+                        .append(code).append(END_STMT);
+            }
+
+            return new OllirExprResult(code, computation);
+        }
+
+        throw new RuntimeException("Unsupported unary operator '" + op + "'");
     }
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
