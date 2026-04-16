@@ -44,6 +44,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(PARENTHESES_EXPR, this::visitParenthesesExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
+        addVisit(METHOD_CALL, this::visitMethodCall);
+        addVisit(THIS, this::visitThis);
+        addVisit(IMPLICIT_CALL, this::visitImplicitCall);
+        addVisit(NEW_OBJECT, this::visitNewObject);
     }
 
     private OllirExprResult visitParenthesesExpr(JmmNode node, Void unused) {
@@ -218,5 +222,121 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     }
 
+    private OllirExprResult visitMethodCall(JmmNode node, Void unused){
+        var childNode = node.getChild(0);
+        var receiver = visit(childNode);
+        var argResults = node.getChildren().stream()
+                .skip(1)
+                .map(this::visit)
+                .toList();
 
+        var receiverType = types.getExprType(childNode);
+        var returnType = types.getExprType(node);
+        var ollirReturnType = ollirTypes.toOllirType(returnType);
+        var methodName = node.get("name");
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(receiver.getComputation());
+        argResults.forEach(arg -> computation.append(arg.getComputation()));
+
+        var invokeKind = "invokevirtual";
+        var receiverCode = receiver.getCode();
+
+        if (receiverType instanceof JmmClassType classType && classType.staticRef()) {
+            invokeKind = "invokestatic";
+            receiverCode = ollirTypes.sanitizeId(types.simpleName(classType.fullyQualifiedName()));
+        }
+
+        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+        var callCode = new StringBuilder()
+                .append(invokeKind)
+                .append("(")
+                .append(receiverCode)
+                .append(", \"")
+                .append(methodName)
+                .append("\"");
+
+        if (!argsCode.isEmpty()) {
+            callCode.append(", ").append(argsCode);
+        }
+
+        callCode.append(")").append(ollirReturnType);
+
+        if (".V".equals(ollirReturnType)) {
+            computation.append(callCode).append(END_STMT);
+            return new OllirExprResult("", computation);
+        }
+
+        var code = ollirTypes.nextTemp() + ollirReturnType;
+        computation.append(code).append(SPACE)
+                .append(ASSIGN).append(ollirReturnType).append(SPACE)
+                .append(callCode).append(END_STMT);
+
+        return new OllirExprResult(code, computation);
+    }
+
+    private OllirExprResult visitThis(JmmNode node, Void unused) {
+        var thisType = types.getExprType(node);
+        var ollirType = ollirTypes.toOllirType(thisType);
+        var code = "this" + ollirType;
+        return new OllirExprResult(code);
+    }
+
+    private OllirExprResult visitImplicitCall(JmmNode node, Void unused) {
+        var methodName = node.get("name");
+        var argResults = node.getChildren().stream().map(this::visit).toList();
+
+        var returnType = types.getExprType(node);
+        var ollirReturnType = ollirTypes.toOllirType(returnType);
+
+        StringBuilder computation = new StringBuilder();
+        argResults.forEach(arg -> computation.append(arg.getComputation()));
+
+        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+        var callCode = new StringBuilder();
+
+        String invokeKind = "invokevirtual";
+        String receiverCode = "this." + table.getClassName();;
+
+        callCode.append(invokeKind)
+                .append("(")
+                .append(receiverCode)
+                .append(", \"")
+                .append(methodName)
+                .append("\"");
+
+        if (!argsCode.isEmpty()) {
+            callCode.append(", ").append(argsCode);
+        }
+
+        callCode.append(")").append(ollirReturnType);
+
+        if (".V".equals(ollirReturnType)) {
+            computation.append(callCode).append(END_STMT);
+            return new OllirExprResult("", computation);
+        }
+
+        var code = ollirTypes.nextTemp() + ollirReturnType;
+        computation.append(code).append(SPACE)
+                .append(ASSIGN).append(ollirReturnType).append(SPACE)
+                .append(callCode).append(END_STMT);
+
+        return new OllirExprResult(code, computation);
+    }
+
+    private OllirExprResult visitNewObject(JmmNode node, Void unused) {
+
+        var className = node.get("name");
+        var temp = ollirTypes.nextTemp();
+        var ollirType = "." + className;
+
+        var computation = new StringBuilder();
+
+
+        computation.append(temp).append(ollirType).append(" :=").append(ollirType)
+                .append(" new(").append(className).append(")").append(ollirType).append(END_STMT)
+                .append("invokespecial(").append(temp).append(ollirType).append(", \"<init>\").V").append(END_STMT);
+
+        return new OllirExprResult(temp + ollirType, computation);
+    }
 }
