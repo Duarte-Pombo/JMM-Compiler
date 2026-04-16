@@ -34,24 +34,24 @@ public class ThisCallsOllirTest extends JmmTestEnv {
                 ollirCode.contains("\"foo\""));
     }
 
-//    @Test
-//    public void implicitThisCallShouldBehaveLikeThisCall() {
-//        var ollirCode = toOllirCode("""
-//            package x;
-//            class A {
-//
-//                public int foo(int x) {
-//                    return x;
-//                }
-//
-//                public int method() {
-//                    return foo(5);
-//                }
-//            }""");
-//
-//        assertTrue("Implicit call should use invokevirtual on this",
-//                ollirCode.contains("invokevirtual(this"));
-//    }
+    @Test
+    public void implicitThisCallShouldBehaveLikeThisCall() {
+        var ollirCode = toOllirCode("""
+            package x;
+            class A {
+
+                public int foo(int x) {
+                    return x;
+                }
+
+                public int method() {
+                    return foo(5);
+                }
+            }""");
+
+        assertTrue("Implicit call should use invokevirtual on this",
+                ollirCode.contains("invokevirtual(this"));
+    }
 
     @Test
     public void thisShouldNotBeTreatedAsStatic() {

@@ -47,6 +47,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(METHOD_CALL, this::visitMethodCall);
         addVisit(THIS, this::visitThis);
         addVisit(IMPLICIT_CALL, this::visitImplicitCall);
+        addVisit(NEW_OBJECT, this::visitNewObject);
     }
 
     private OllirExprResult visitParenthesesExpr(JmmNode node, Void unused) {
@@ -321,5 +322,21 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
                 .append(callCode).append(END_STMT);
 
         return new OllirExprResult(code, computation);
+    }
+
+    private OllirExprResult visitNewObject(JmmNode node, Void unused) {
+
+        var className = node.get("name");
+        var temp = ollirTypes.nextTemp();
+        var ollirType = "." + className;
+
+        var computation = new StringBuilder();
+
+
+        computation.append(temp).append(ollirType).append(" :=").append(ollirType)
+                .append(" new(").append(className).append(")").append(ollirType).append(END_STMT)
+                .append("invokespecial(").append(temp).append(ollirType).append(", \"<init>\").V").append(END_STMT);
+
+        return new OllirExprResult(temp + ollirType, computation);
     }
 }

@@ -116,26 +116,26 @@ public class FunctionCallOllirTest extends JmmTestEnv {
                 !ollirCode.contains("invokestatic(this.A, \"foo\""));
     }
 
-//    @Test
-//    public void virtualCallOnObjectShouldGenerateInvokevirtual() {
-//        var ollirCode = toOllirCode("""
-//            package x;
-//            class A {
-//
-//                public int foo(int x) {
-//                    return x;
-//                }
-//
-//                public int method() {
-//                    A a;
-//                    a = new A();
-//                    return a.foo(3);
-//                }
-//            }""");
-//
-//        assertTrue("Call on object should use invokevirtual",
-//                ollirCode.contains("invokevirtual(a, \"foo\", 3.i32).i32"));
-//    }
+    @Test
+    public void virtualCallOnObjectShouldGenerateInvokevirtual() {
+        var ollirCode = toOllirCode("""
+            package x;
+            class A {
+
+                public int foo(int x) {
+                    return x;
+                }
+
+                public int method() {
+                    A a;
+                    a = new A();
+                    return a.foo(3);
+                }
+            }""");
+        System.out.println(ollirCode);
+        assertTrue("Call on object should use invokevirtual",
+                ollirCode.contains("invokevirtual(a.A, \"foo\", 3.i32).i32"));
+    }
 
     @Test
     public void voidVirtualCallShouldStillGenerateInvokevirtualStatement() {
@@ -143,7 +143,7 @@ public class FunctionCallOllirTest extends JmmTestEnv {
             package x;
             class A {
 
-                public void foo(int x) {
+                public void foo(int x) {it
                 }
 
                 public void method() {
