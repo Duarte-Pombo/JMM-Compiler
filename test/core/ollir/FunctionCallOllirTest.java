@@ -154,24 +154,25 @@ public class FunctionCallOllirTest extends JmmTestEnv {
                 ollirCode.contains("invokevirtual(this.A, \"foo\", 10.i32).V;"));
     }
 
-//    @Test
-//    public void shouldNotConfuseClassWithVariableName() {
-//        var ollirCode = toOllirCode("""
-//            package x;
-//            class A {
-//
-//                public static void ping(int x) {}
-//
-//                public void method() {
-//                    int A;
-//                    A = 5;
-//                    ping(A);
-//                }
-//            }""");
-//
-//        assertTrue("Should not incorrectly use invokestatic with variable as class",
-//                !ollirCode.contains("invokestatic(A, \"ping\""));
-//    }
+    @Test
+    public void shouldNotConfuseClassWithVariableName() {
+        var ollirCode = toOllirCode("""
+            package x;
+            class A {
+
+                public static void ping(int x) {}
+
+                public void method() {
+                    int A;
+                    A = 5;
+                    ping(A);
+                }
+            }""");
+
+        System.out.println(ollirCode);
+        assertTrue("Should not incorrectly use invokestatic with variable as class",
+                !ollirCode.contains("invokestatic(A, \"ping\""));
+    }
 
     private String toOllirCode(String code) {
         var parserResult = parseSnippet(code);

@@ -46,6 +46,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
         addVisit(METHOD_CALL, this::visitMethodCall);
         addVisit(THIS, this::visitThis);
+        addVisit(IMPLICIT_CALL, this::visitImplicitCall);
     }
 
     private OllirExprResult visitParenthesesExpr(JmmNode node, Void unused) {
@@ -278,5 +279,47 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         var ollirType = ollirTypes.toOllirType(thisType);
         var code = "this" + ollirType;
         return new OllirExprResult(code);
+    }
+
+    private OllirExprResult visitImplicitCall(JmmNode node, Void unused) {
+        var methodName = node.get("name");
+        var argResults = node.getChildren().stream().map(this::visit).toList();
+
+        var returnType = types.getExprType(node);
+        var ollirReturnType = ollirTypes.toOllirType(returnType);
+
+        StringBuilder computation = new StringBuilder();
+        argResults.forEach(arg -> computation.append(arg.getComputation()));
+
+        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+        var callCode = new StringBuilder();
+
+        String invokeKind = "invokevirtual";
+        String receiverCode = "this." + table.getClassName();;
+
+        callCode.append(invokeKind)
+                .append("(")
+                .append(receiverCode)
+                .append(", \"")
+                .append(methodName)
+                .append("\"");
+
+        if (!argsCode.isEmpty()) {
+            callCode.append(", ").append(argsCode);
+        }
+
+        callCode.append(")").append(ollirReturnType);
+
+        if (".V".equals(ollirReturnType)) {
+            computation.append(callCode).append(END_STMT);
+            return new OllirExprResult("", computation);
+        }
+
+        var code = ollirTypes.nextTemp() + ollirReturnType;
+        computation.append(code).append(SPACE)
+                .append(ASSIGN).append(ollirReturnType).append(SPACE)
+                .append(callCode).append(END_STMT);
+
+        return new OllirExprResult(code, computation);
     }
 }
