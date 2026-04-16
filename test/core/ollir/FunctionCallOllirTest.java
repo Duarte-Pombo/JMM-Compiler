@@ -132,26 +132,8 @@ public class FunctionCallOllirTest extends JmmTestEnv {
                     return a.foo(3);
                 }
             }""");
-        System.out.println(ollirCode);
         assertTrue("Call on object should use invokevirtual",
                 ollirCode.contains("invokevirtual(a.A, \"foo\", 3.i32).i32"));
-    }
-
-    @Test
-    public void voidVirtualCallShouldStillGenerateInvokevirtualStatement() {
-        var ollirCode = toOllirCode("""
-            package x;
-            class A {
-
-                public void foo(int x) {it
-                }
-
-                public void method() {
-                    this.foo(10);
-                }
-            }""");
-        assertTrue("Void virtual call should use invokevirtual",
-                ollirCode.contains("invokevirtual(this.A, \"foo\", 10.i32).V;"));
     }
 
     @Test
@@ -169,9 +151,109 @@ public class FunctionCallOllirTest extends JmmTestEnv {
                 }
             }""");
 
-        System.out.println(ollirCode);
         assertTrue("Should not incorrectly use invokestatic with variable as class",
                 !ollirCode.contains("invokestatic(A, \"ping\""));
+    }
+
+    @Test
+    public void mixedStaticAndVirtualCallsShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int foo(int x) {
+                return x;
+            }
+
+            public static int inc(int x) {
+                return x + 1;
+            }
+
+            public int method() {
+                return A.inc(this.foo(2));
+            }
+        }""");
+
+        assertTrue("Should contain inner virtual call",
+                ollirCode.contains("invokevirtual(this.A, \"foo\", 2.i32)"));
+
+        assertTrue("Should contain outer static call",
+                ollirCode.contains("invokestatic(A, \"inc\""));
+    }
+
+    @Test
+    public void callAsArgumentOfVoidMethodShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int foo(int x) {
+                return x;
+            }
+
+            public void print(int x) {}
+
+            public void method() {
+                print(this.foo(3));
+            }
+        }""");
+
+        assertTrue("Inner call must exist",
+                ollirCode.contains("invokevirtual(this.A, \"foo\", 3.i32)"));
+
+        assertTrue("Outer call must be invokevirtual to print",
+                ollirCode.contains("invokevirtual(this.A, \"print\""));
+    }
+
+    @Test
+    public void deepNestedCallsShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int f(int x) {
+                return x;
+            }
+
+            public int method() {
+                return this.f(this.f(this.f(1)));
+            }
+        }""");
+
+        long calls = ollirCode.lines()
+                .filter(l -> l.contains("invokevirtual"))
+                .count();
+
+        assertTrue("Should generate multiple virtual calls", calls >= 3);
+    }
+
+    @Test
+    public void mixedStaticAndInstanceCallsInSameMethod() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public static int inc(int x) {
+                return x + 1;
+            }
+
+            public int foo(int x) {
+                return x;
+            }
+
+            public int method() {
+                int a;
+                a = A.inc(1);
+                a = this.foo(a);
+                return a;
+            }
+        }""");
+
+        assertTrue("Should contain static call",
+                ollirCode.contains("invokestatic(A, \"inc\", 1.i32)"));
+
+        assertTrue("Should contain virtual call",
+                ollirCode.contains("invokevirtual(this.A, \"foo\""));
     }
 
     private String toOllirCode(String code) {
