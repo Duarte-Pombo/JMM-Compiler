@@ -256,6 +256,88 @@ public class FunctionCallOllirTest extends JmmTestEnv {
                 ollirCode.contains("invokevirtual(this.A, \"foo\""));
     }
 
+    @Test
+    public void newObjectCallWithoutArgsShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public void foo() {}
+
+            public void method() {
+                new A().foo();
+            }
+        }""");
+
+        assertTrue("a",ollirCode.contains("new(A).A"));
+        assertTrue("a",ollirCode.contains("invokespecial") || ollirCode.contains("invokevirtual"));
+        assertTrue("a",ollirCode.contains("\"foo\""));
+    }
+
+    @Test
+    public void newObjectCallInReturnShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int foo() {
+                return 42;
+            }
+
+            public int method() {
+                return new A().foo();
+            }
+        }""");
+
+        assertTrue("a",ollirCode.contains("invokevirtual"));
+        assertTrue("a",ollirCode.contains("ret.i32"));
+        assertTrue("a",ollirCode.contains("new(A).A"));
+    }
+
+    @Test
+    public void newObjectCallAssignedShouldWork() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int foo() {
+                return 1;
+            }
+
+            public int method() {
+                A a;
+                a = new A();
+                return a.foo();
+            }
+        }""");
+
+        assertTrue("a",ollirCode.contains("tmp"));
+        assertTrue("a",ollirCode.contains("invokevirtual(a.A, \"foo\""));
+    }
+
+    @Test
+    public void newObjectUsedAsReceiverMultipleTimes() {
+        var ollirCode = toOllirCode("""
+        package x;
+        class A {
+
+            public int foo() {
+                return 1;
+            }
+
+            public int method() {
+                return new A().foo();
+            }
+        }""");
+
+        long newCount = ollirCode.lines()
+                .filter(l -> l.contains("new(A).A"))
+                .count();
+        long res = 1;
+        assertTrue("a",newCount >= res);
+        assertTrue("a",ollirCode.contains("invokevirtual"));
+    }
+
     private String toOllirCode(String code) {
         var parserResult = parseSnippet(code);
         assertTrue("Unexpected parser errors", parserResult.getReports(ReportType.ERROR).isEmpty());
