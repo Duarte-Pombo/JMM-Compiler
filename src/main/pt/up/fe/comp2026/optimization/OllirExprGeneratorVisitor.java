@@ -38,6 +38,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     @Override
     protected void buildVisitor() {
         addVisit(VAR_REF_EXPR, this::visitVarRef);
+        addVisit(THIS, this::visitThis);
+        addVisit(ARRAY_ACCESS, this::visitArrayAccess);
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(NEGATION_EXPR, this::visitNegationExpr);
         addVisit(UNARY_EXPR, this::visitUnaryExpr);
@@ -45,7 +47,6 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(INTEGER_LITERAL, this::visitInteger);
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
         addVisit(METHOD_CALL, this::visitMethodCall);
-        addVisit(THIS, this::visitThis);
         addVisit(IMPLICIT_CALL, this::visitImplicitCall);
         addVisit(NEW_OBJECT, this::visitNewObject);
     }
@@ -210,16 +211,64 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     }
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
-
         var id = ollirTypes.sanitizeId(node.get("name"));
         JmmType type = types.getExprType(node);
         String ollirType = ollirTypes.toOllirType(type);
 
+        if (isFieldReference(node.get("name"), node)) {
+            String code = ollirTypes.nextTemp() + ollirType;
+            StringBuilder computation = new StringBuilder();
+            computation.append(code).append(SPACE)
+                    .append(ASSIGN).append(ollirType).append(SPACE)
+                    .append("getfield(this, ").append(id).append(ollirType).append(")")
+                    .append(ollirType).append(END_STMT);
+
+            return new OllirExprResult(code, computation);
+        }
 
         String code = id + ollirType;
-
         return new OllirExprResult(code);
+    }
 
+    private OllirExprResult visitThis(JmmNode node, Void unused) {
+        JmmType type = types.getExprType(node);
+        return new OllirExprResult("this" + ollirTypes.toOllirType(type));
+    }
+
+    private OllirExprResult visitArrayAccess(JmmNode node, Void unused) {
+        var array = visit(node.getChild(0));
+        var index = visit(node.getChild(1));
+        var elementType = ollirTypes.toOllirType(types.getExprType(node));
+        var code = ollirTypes.nextTemp() + elementType;
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(array.getComputation());
+        computation.append(index.getComputation());
+        computation.append(code).append(SPACE)
+                .append(ASSIGN).append(elementType).append(SPACE)
+                .append(array.getCode())
+                .append("[")
+                .append(index.getCode())
+                .append("]")
+                .append(elementType)
+                .append(END_STMT);
+
+        return new OllirExprResult(code, computation);
+    }
+
+    private boolean isFieldReference(String varName, JmmNode scopeNode) {
+        var methodDecl = scopeNode.getAncestor(METHOD_DECL);
+        if (methodDecl.isPresent()) {
+            var signature = types.getMethodDeclSignature(methodDecl.get());
+            var method = table.getMethod(signature);
+            if (method.isPresent()) {
+                if (method.get().getLocalVariable(varName).isPresent() || method.get().getParameter(varName).isPresent()) {
+                    return false;
+                }
+            }
+        }
+
+        return table.getField(varName).isPresent();
     }
 
     private OllirExprResult visitMethodCall(JmmNode node, Void unused){
@@ -275,12 +324,6 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(code, computation);
     }
 
-    private OllirExprResult visitThis(JmmNode node, Void unused) {
-        var thisType = types.getExprType(node);
-        var ollirType = ollirTypes.toOllirType(thisType);
-        var code = "this" + ollirType;
-        return new OllirExprResult(code);
-    }
 
     private OllirExprResult visitImplicitCall(JmmNode node, Void unused) {
         var methodName = node.get("name");
