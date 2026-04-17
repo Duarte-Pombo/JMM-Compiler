@@ -99,24 +99,64 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         JmmType lhsType = types.getExprType(lhsNode);
         String typeString = ollirTypes.toOllirType(lhsType);
-        var varCode = exprVisitor.visit(lhsNode).getCode();
-
-
         var code = new StringBuilder();
 
-        // code to compute the children
+        if (lhsNode.isInstance(VAR_REF_EXPR)) {
+            var varName = lhsNode.get("name");
+            var sanitizedName = ollirTypes.sanitizeId(varName);
+
+            code.append(rhs.getComputation());
+
+            if (isFieldReference(varName, lhsNode)) {
+                code.append("putfield(this, ")
+                        .append(sanitizedName).append(typeString)
+                        .append(", ")
+                        .append(rhs.getCode())
+                        .append(").V")
+                        .append(END_STMT);
+                return code.toString();
+            }
+
+            code.append(sanitizedName)
+                    .append(typeString)
+                    .append(SPACE)
+                    .append(ASSIGN).append(typeString).append(SPACE)
+                    .append(rhs.getCode())
+                    .append(END_STMT);
+
+            return code.toString();
+        }
+
+        if (lhsNode.isInstance(ARRAY_ACCESS)) {
+            var arrayExpr = exprVisitor.visit(lhsNode.getChild(0));
+            var indexExpr = exprVisitor.visit(lhsNode.getChild(1));
+
+            code.append(arrayExpr.getComputation());
+            code.append(indexExpr.getComputation());
+            code.append(rhs.getComputation());
+
+            code.append(arrayExpr.getCode())
+                    .append("[")
+                    .append(indexExpr.getCode())
+                    .append("]")
+                    .append(typeString)
+                    .append(SPACE)
+                    .append(ASSIGN).append(typeString).append(SPACE)
+                    .append(rhs.getCode())
+                    .append(END_STMT);
+
+            return code.toString();
+        }
+
+        // Fallback for any other assignable expression kinds.
+        var lhs = exprVisitor.visit(lhsNode);
+        code.append(lhs.getComputation());
         code.append(rhs.getComputation());
-
-        code.append(varCode);
-        code.append(SPACE);
-
-        code.append(ASSIGN);
-        code.append(typeString);
-        code.append(SPACE);
-
-        code.append(rhs.getCode());
-
-        code.append(END_STMT);
+        code.append(lhs.getCode())
+                .append(SPACE)
+                .append(ASSIGN).append(typeString).append(SPACE)
+                .append(rhs.getCode())
+                .append(END_STMT);
 
         return code.toString();
     }
@@ -124,6 +164,21 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String visitExprStmt(JmmNode node, Void unused) {
         var expr = exprVisitor.visit(node.getChild(0));
         return expr.getComputation();
+    }
+
+    private boolean isFieldReference(String varName, JmmNode scopeNode) {
+        var methodDecl = scopeNode.getAncestor(METHOD_DECL);
+        if (methodDecl.isPresent()) {
+            var signature = types.getMethodDeclSignature(methodDecl.get());
+            var method = table.getMethod(signature);
+            if (method.isPresent()) {
+                if (method.get().getLocalVariable(varName).isPresent() || method.get().getParameter(varName).isPresent()) {
+                    return false;
+                }
+            }
+        }
+
+        return table.getField(varName).isPresent();
     }
 
     private String visitReturn(JmmNode node, Void unused) {

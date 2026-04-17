@@ -265,7 +265,7 @@ public class TypeUtils {
         } else {
             for (var paramNode : methodDecl.getChildren(JmmKind.PARAM)) {
                 var paramTypeNode = paramNode.getChildren().getFirst();
-                params.add(convertType(paramTypeNode));
+                params.add(convertType(paramTypeNode, table.getImports(), table.getFullyQualifiedName()));
             }
         }
 
