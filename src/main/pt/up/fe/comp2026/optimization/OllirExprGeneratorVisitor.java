@@ -43,6 +43,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
         addVisit(NEW_ARRAY, this::visitNewArray);
         addVisit(ARRAY_ACCESS, this::visitArrayAccess);
+        addVisit(PARENTHESES_EXPR, this::visitParentheses);
     }
 
     private OllirExprResult visitInteger(JmmNode node, Void unused) {
@@ -143,4 +144,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         return new OllirExprResult(resultTemp, computation);
     }
+
+    private OllirExprResult visitParentheses(JmmNode node, Void unused) {
+        // Simply visit the expression inside the parentheses and return its result
+        return visit(node.getChild(0));
+    }
+
 }
