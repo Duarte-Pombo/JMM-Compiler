@@ -4,16 +4,10 @@ import pt.up.fe.comp.jmm.analysis.table.MethodSymbol;
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
-import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
-import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmPrimitiveType;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.utils.Attributes;
-import pt.up.fe.comp2026.ast.AccessType;
 import pt.up.fe.comp2026.ast.NodeUtils;
 import pt.up.fe.comp2026.ast.TypeUtils;
-import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
-import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -32,29 +26,22 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private final String L_BRACKET = " {\n";
     private final String R_BRACKET = "}\n";
 
-
     private final SymbolTable table;
-
     private final TypeUtils types;
     private final OptUtils ollirTypes;
-
-
     private final OllirExprGeneratorVisitor exprVisitor;
-
     private MethodSymbol currentMethod;
 
     public OllirGeneratorVisitor(SymbolTable table) {
         this.table = table;
         this.types = new TypeUtils(table);
         this.ollirTypes = new OptUtils(types);
-        exprVisitor = new OllirExprGeneratorVisitor(table, ollirTypes);
-        currentMethod = null;
+        this.exprVisitor = new OllirExprGeneratorVisitor(table, ollirTypes);
+        this.currentMethod = null;
     }
-
 
     @Override
     protected void buildVisitor() {
-
         addVisit(PROGRAM, this::visitProgram);
         addVisit(PACKAGE_DECL, this::visitPackageDecl);
         addVisit(IMPORT_DECL, this::visitImportDecl);
@@ -69,9 +56,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(COMPOUND_STMT, this::visitCompoundStmt);
         addVisit(WHILE_STMT, this::visitWhileStmt);
         addVisit(IF_ELSE_STMT, this::visitIfElseStmt);
-//        setDefaultVisit(this::defaultVisit);
+        addVisit(ARRAY_ASSIGN_STMT, this::visitArrayAssign);
     }
-
 
     private String simpleVarDecl(JmmNode varDecl, Void unused) {
         return varDecl.get("name") + ollirTypes.toOllirType(varDecl.getObject("typeNode", JmmNode.class)) + ";";
@@ -81,8 +67,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return varDecl.get("name") + ollirTypes.toOllirType(varDecl.getObject("typeNode", JmmNode.class));
     }
 
-
-
     private String visitPackageDecl(JmmNode packageDecl, Void unused) {
         return "package " + String.join(".", packageDecl.getObjectAsList("path", String.class)) + ";\n";
     }
@@ -90,7 +74,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String visitImportDecl(JmmNode importDecl, Void unused) {
         return "import " + String.join(".", importDecl.getObjectAsList("path", String.class)) + ";\n";
     }
-
 
     private String visitAssignStmt(JmmNode node, Void unused) {
         var lhsNode = node.getChild(0);
@@ -148,7 +131,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             return code.toString();
         }
 
-        // Fallback for any other assignable expression kinds.
         var lhs = exprVisitor.visit(lhsNode);
         code.append(lhs.getComputation());
         code.append(rhs.getComputation());
@@ -177,7 +159,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 }
             }
         }
-
         return table.getField(varName).isPresent();
     }
 
@@ -185,10 +166,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         if (currentMethod == null) {
             throw new IllegalStateException("Return statement found outside of a method declaration");
         }
-
         JmmType retType = currentMethod.returnType();
         String ollirRetType = ollirTypes.toOllirType(retType);
-
         StringBuilder code = new StringBuilder();
 
         if (node.getNumChildren() == 0) {
@@ -199,7 +178,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var expr = exprVisitor.visit(node.getChild(0));
         code.append(expr.getComputation());
         code.append("ret").append(ollirRetType).append(SPACE).append(expr.getCode()).append(END_STMT);
-
         return code.toString();
     }
 
@@ -215,7 +193,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var beginLabel = nextLabel("loop_begin");
         var bodyLabel = nextLabel("loop_body");
         var exitLabel = nextLabel("loop_exit");
-
         var condExpr = exprVisitor.visit(whileStmt.getChild(0));
 
         StringBuilder code = new StringBuilder();
@@ -227,115 +204,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(visit(whileStmt.getChild(1)));
         code.append("goto ").append(beginLabel).append(END_STMT);
         code.append(exitLabel).append(":\n");
-
         return code.toString();
     }
-
-    private String visitMethodDecl(JmmNode node, Void unused) {
-
-        currentMethod = table.getMethod(TypeUtils.with(table).getMethodDeclSignature(node)).orElseThrow();
-
-        StringBuilder code = new StringBuilder(".method ");
-
-        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
-
-        if (isPublic) {
-            code.append("public ");
-        }
-
-        if (node.getObject("isStatic", Boolean.class)) {
-            code.append("static ");
-        }
-
-        // name
-        var name = ollirTypes.sanitizeId(node.get("name"));
-        code.append(name);
-
-        // params
-        // TODO: Hardcoded for a single parameter, needs to be expanded
-        // DONE - Andre
-        var paramsCode = currentMethod.parameters().stream().map(param -> {
-            var paramName = ollirTypes.sanitizeId(param.name()); // Protects against ollir reserved keywords
-            var paramType = ollirTypes.toOllirType(param.type());
-            return paramName + paramType;
-        }).collect(Collectors.joining(", "));
-        code.append("(").append(paramsCode).append(")");
-
-        // type
-        var retType = ollirTypes.toOllirType(currentMethod.returnType());//table.getReturnType(node.get("name")));
-        code.append(retType);
-        code.append(L_BRACKET);
-
-        var stmts = node.getChildren(STMT);
-        if (!stmts.isEmpty()) {
-            // rest of its children stmts
-            var stmtsCode = stmts.stream().map(this::visit).collect(Collectors.joining("\n   ", "   ", ""));
-            code.append(stmtsCode);
-        }
-
-        if (Objects.equals(retType, ".V")) {
-            if (stmts.isEmpty() || !Objects.equals(stmts.getLast().getKind().toString(), RETURN_STMT.toString())) {
-                code.append("   ret.V;\n");
-            }
-        }
-        code.append(R_BRACKET);
-        code.append(NL);
-
-        currentMethod = null;
-
-        return code.toString();
-    }
-
-    private String visitClass(JmmNode node, Void unused) {
-
-        StringBuilder code = new StringBuilder();
-
-        code.append(NL);
-        code.append(table.getClassName());
-        node.getOptional("parent").ifPresent(parent -> code.append(" extends ").append(parent));
-
-        code.append(L_BRACKET);
-        code.append(NL);
-
-        for (Symbol field : table.getFields()) {
-            code.append(".field ")
-                    .append(ollirTypes.sanitizeId(field.name()))
-                    .append(ollirTypes.toOllirType(field.type()))
-                    .append(END_STMT);
-        }
-        code.append(NL);
-
-
-        code.append(buildConstructor());
-        code.append(NL);
-
-        for (var child : node.getChildren(METHOD_DECL)) {
-            var result = visit(child);
-            code.append(result);
-        }
-
-        code.append(R_BRACKET);
-
-        return code.toString();
-    }
-
-    private String buildConstructor() {
-        return """
-                .construct %s().V {
-                    invokespecial(this, "<init>").V;
-                }
-                """.formatted(table.getClassName());
-    }
-
-    private String visitProgram(JmmNode node, Void unused) {
-
-        StringBuilder code = new StringBuilder();
-
-        node.getChildren().stream().map(this::visit).forEach(code::append);
-
-        return code.toString();
-    }
-
 
     private String visitIfElseStmt(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder();
@@ -356,20 +226,104 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return code.toString();
     }
 
+    private String visitArrayAssign(JmmNode node, Void unused) {
+        String array = node.get("var");
+        var idx = node.getChild(0);
+        var val = node.getChild(1);
 
-    /**
-     * Default visitor. Visits every child node and return an empty string.
-     *
-     * @param node
-     * @param unused
-     * @return
-     */
+        var idxOllir = exprVisitor.visit(idx);
+        var valOllir = exprVisitor.visit(val);
+
+        var elementType = types.getExprType(val);
+        String elementTypeOllir = ollirTypes.toOllirType(elementType);
+
+        StringBuilder code = new StringBuilder();
+        String arrayCode = ollirTypes.sanitizeId(array) + ".array" + elementTypeOllir;
+
+        code.append(idxOllir.getComputation());
+        code.append(valOllir.getComputation());
+
+        code.append(arrayCode).append("[").append(idxOllir.getCode()).append("]")
+                .append(elementTypeOllir).append(SPACE).append(ASSIGN)
+                .append(elementTypeOllir).append(SPACE)
+                .append(valOllir.getCode()).append(END_STMT);
+        return code.toString();
+    }
+
+    private String visitMethodDecl(JmmNode node, Void unused) {
+        currentMethod = table.getMethod(TypeUtils.with(table).getMethodDeclSignature(node)).orElseThrow();
+        StringBuilder code = new StringBuilder(".method ");
+
+        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
+        if (isPublic) code.append("public ");
+        if (node.getObject("isStatic", Boolean.class)) code.append("static ");
+
+        var name = ollirTypes.sanitizeId(node.get("name"));
+        code.append(name);
+
+        var paramsCode = currentMethod.parameters().stream().map(param -> {
+            var paramName = ollirTypes.sanitizeId(param.name());
+            var paramType = ollirTypes.toOllirType(param.type());
+            return paramName + paramType;
+        }).collect(Collectors.joining(", "));
+        code.append("(").append(paramsCode).append(")");
+
+        var retType = ollirTypes.toOllirType(currentMethod.returnType());
+        code.append(retType).append(L_BRACKET);
+
+        var stmts = node.getChildren(STMT);
+        if (!stmts.isEmpty()) {
+            var stmtsCode = stmts.stream().map(this::visit).collect(Collectors.joining("\n   ", "   ", ""));
+            code.append(stmtsCode);
+        }
+
+        if (Objects.equals(retType, ".V")) {
+            if (stmts.isEmpty() || !Objects.equals(stmts.getLast().getKind().toString(), RETURN_STMT.toString())) {
+                code.append("   ret.V;\n");
+            }
+        }
+        code.append(R_BRACKET).append(NL);
+        currentMethod = null;
+        return code.toString();
+    }
+
+    private String visitClass(JmmNode node, Void unused) {
+        StringBuilder code = new StringBuilder();
+        code.append(NL).append(table.getClassName());
+        node.getOptional("parent").ifPresent(parent -> code.append(" extends ").append(parent));
+        code.append(L_BRACKET).append(NL);
+
+        for (Symbol field : table.getFields()) {
+            code.append(".field ").append(ollirTypes.sanitizeId(field.name()))
+                    .append(ollirTypes.toOllirType(field.type())).append(END_STMT);
+        }
+        code.append(NL).append(buildConstructor()).append(NL);
+
+        for (var child : node.getChildren(METHOD_DECL)) {
+            code.append(visit(child));
+        }
+        code.append(R_BRACKET);
+        return code.toString();
+    }
+
+    private String buildConstructor() {
+        return """
+                .construct %s().V {
+                    invokespecial(this, "<init>").V;
+                }
+                """.formatted(table.getClassName());
+    }
+
+    private String visitProgram(JmmNode node, Void unused) {
+        StringBuilder code = new StringBuilder();
+        node.getChildren().stream().map(this::visit).forEach(code::append);
+        return code.toString();
+    }
+
     private String defaultVisit(JmmNode node, Void unused) {
-
         for (var child : node.getChildren()) {
             visit(child);
         }
-
         return "";
     }
 }
