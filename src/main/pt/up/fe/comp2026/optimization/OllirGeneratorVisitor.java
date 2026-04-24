@@ -67,6 +67,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
         addVisit(COMPOUND_STMT, this::visitCompoundStmt);
         addVisit(WHILE_STMT, this::visitWhileStmt);
+        addVisit(ARRAY_ASSIGN_STMT, this::visitArrayAssign);
 //        setDefaultVisit(this::defaultVisit);
     }
 
@@ -273,6 +274,31 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         return code.toString();
     }
+
+    private String visitArrayAssign(JmmNode node, Void unused) {
+        String array = node.get("var"); // Grab the array name from the attribute
+        var idx = node.getChild(0);         // Index is now child 0
+        var val = node.getChild(1);
+
+        var idxOllir = exprVisitor.visit(idx);
+        var valOllir = exprVisitor.visit(val);
+
+        var elementType = types.getExprType(val);
+        String elementTypeOllir = ollirTypes.toOllirType(elementType);
+
+        StringBuilder code = new StringBuilder();
+
+        String arrayCode = ollirTypes.sanitizeId(array) + ".array" + elementTypeOllir;
+
+        code.append(idxOllir.getComputation());
+        code.append(valOllir.getComputation());
+
+        code.append(arrayCode).append('[').append(idxOllir.getCode()).append(']')
+                .append(elementTypeOllir).append(" :=").append(elementTypeOllir).append(" ")
+                .append(valOllir.getCode()).append(";\n");
+        return code.toString();
+    }
+
 
     /**
      * Default visitor. Visits every child node and return an empty string.
