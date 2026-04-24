@@ -9,6 +9,7 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.ast.AccessType;
 import pt.up.fe.comp2026.ast.TypeUtils;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
@@ -44,6 +45,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(NEW_ARRAY, this::visitNewArray);
         addVisit(ARRAY_ACCESS, this::visitArrayAccess);
         addVisit(PARENTHESES_EXPR, this::visitParentheses);
+        addVisit(FIELD_ACCESS, this::visitLengths);
+        addVisit(NEGATION_EXPR, this::visitNegation);
     }
 
     private OllirExprResult visitInteger(JmmNode node, Void unused) {
@@ -149,5 +152,45 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         // Simply visit the expression inside the parentheses and return its result
         return visit(node.getChild(0));
     }
+
+    private OllirExprResult visitLengths(JmmNode node, Void unused) {
+        var arrayExpr = node.getChild(0);
+        var arrayOllir = visit(arrayExpr);
+        if (Objects.equals(node.get("name"), "length") && types.getExprType(arrayExpr).isArray()) {
+            String resultTemp = ollirTypes.nextTemp() + ".i32";
+            StringBuilder computation = new StringBuilder();
+
+            // 3. Append any computation needed for the array reference
+            computation.append(arrayOllir.getComputation());
+
+            // 4. Generate the arraylength OLLIR instruction
+            // e.g., tmp1.i32 :=.i32 arraylength(myArray.array.i32).i32;
+            computation.append(resultTemp).append(" :=.i32 arraylength(")
+                    .append(arrayOllir.getCode()).append(").i32;\n");
+
+            return new OllirExprResult(resultTemp, computation);
+        }
+        return null;
+    }
+
+    private OllirExprResult visitNegation(JmmNode node, Void unused) {
+        // 1. Evaluate the expression being negated
+        var childOllir = visit(node.getChild(0));
+
+        // 2. Create a temp boolean variable
+        String resultTemp = ollirTypes.nextTemp() + ".bool";
+        StringBuilder computation = new StringBuilder();
+
+        // 3. Append the child's computations
+        computation.append(childOllir.getComputation());
+
+        // 4. Apply the ! operator in OLLIR
+        // e.g., tmp1.bool :=.bool !.bool tmp2.bool;
+        computation.append(resultTemp).append(" :=.bool !.bool ")
+                .append(childOllir.getCode()).append(";\n");
+
+        return new OllirExprResult(resultTemp, computation);
+    }
+
 
 }
