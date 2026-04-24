@@ -137,7 +137,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
             System.out.println(ollirResult.getOllirCode());
         }
 
-        //TODO: Do your OLLIR-based optimizations here
+        ollirResult.getOllirClass().buildCFGs();
 
         return ollirResult;
     }
