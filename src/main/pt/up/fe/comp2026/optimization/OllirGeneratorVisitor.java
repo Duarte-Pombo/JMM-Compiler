@@ -282,12 +282,23 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitMethodDecl(JmmNode node, Void unused) {
+
         currentMethod = table.getMethod(TypeUtils.with(table).getMethodDeclSignature(node)).orElseThrow();
         StringBuilder code = new StringBuilder(".method ");
 
-        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
-        if (isPublic) code.append("public ");
-        if (node.getObject("isStatic", Boolean.class)) code.append("static ");
+        String visibility = node.getOptional("visibility").orElse("");
+
+        if (visibility.equals("public")) {
+            code.append("public ");
+        } else if (visibility.equals("private")) {
+            code.append("private ");
+        } else if (visibility.equals("protected")) {
+            code.append("protected ");
+        }
+
+        if (node.getObject("isStatic", Boolean.class)) {
+            code.append("static ");
+        }
 
         var name = ollirTypes.sanitizeId(node.get("name"));
         code.append(name);
