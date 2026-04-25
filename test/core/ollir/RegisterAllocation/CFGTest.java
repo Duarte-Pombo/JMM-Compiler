@@ -8,7 +8,7 @@ import pt.up.fe.comp2026.optimization.JmmOptimizationImpl;
 import org.specs.comp.ollir.Method;
 import pt.up.fe.comp.jmm.report.ReportType;
 
-public class CFGTest extends JmmTestEnv{
+public class CFGTest extends JmmTestEnv {
 
     public CFGTest() {
         super("", "");
@@ -43,16 +43,16 @@ public class CFGTest extends JmmTestEnv{
     @Test
     public void testSequentialCFG() {
         var code = """
-            package x;
-            class A {
-                public int method() {
-                    int a;
-                    int b;
-                    a = 1;
-                    b = a + 2;
-                    return b;
-                }
-            }""";
+                package x;
+                class A {
+                    public int method() {
+                        int a;
+                        int b;
+                        a = 1;
+                        b = a + 2;
+                        return b;
+                    }
+                }""";
 
         var ollirResult = getTransformedOllir(code);
         var classUnit = ollirResult.getOllirClass();
@@ -69,18 +69,18 @@ public class CFGTest extends JmmTestEnv{
     @Test
     public void testIfElseCFG() {
         var code = """
-            package x;
-            class A {
-                public int method(boolean cond) {
-                    int a;
-                    if (cond) {
-                        a = 1;
-                    } else {
-                        a = 2;
+                package x;
+                class A {
+                    public int method(boolean cond) {
+                        int a;
+                        if (cond) {
+                            a = 1;
+                        } else {
+                            a = 2;
+                        }
+                        return a;
                     }
-                    return a;
-                }
-            }""";
+                }""";
 
         var ollirResult = getTransformedOllir(code);
         var classUnit = ollirResult.getOllirClass();
@@ -93,22 +93,22 @@ public class CFGTest extends JmmTestEnv{
         assertTrue("Should have a branching node", !branchNodes.isEmpty());
 
         var branch = branchNodes.get(0);
-        assertEquals("a",2, branch.getSuccessors().size());
+        assertEquals("a", 2, branch.getSuccessors().size());
     }
 
     @Test
     public void testWhileCFG() {
         var code = """
-            package x;
-            class A {
-                public void method() {
-                    int i;
-                    i = 0;
-                    while (i < 10) {
-                        i = i + 1;
+                package x;
+                class A {
+                    public void method() {
+                        int i;
+                        i = 0;
+                        while (i < 10) {
+                            i = i + 1;
+                        }
                     }
-                }
-            }""";
+                }""";
 
         var ollirResult = getTransformedOllir(code);
         var classUnit = ollirResult.getOllirClass();
@@ -124,17 +124,17 @@ public class CFGTest extends JmmTestEnv{
     @Test
     public void testFunctionCallCFG() {
         var code = """
-            package x;
-            class A {
-                public int method() {
-                    int a;
-                    a = this.helper();
-                    return a;
-                }
-                public int helper() {
-                    return 42;
-                }
-            }""";
+                package x;
+                class A {
+                    public int method() {
+                        int a;
+                        a = this.helper();
+                        return a;
+                    }
+                    public int helper() {
+                        return 42;
+                    }
+                }""";
 
         var ollirResult = getTransformedOllir(code);
         var classUnit = ollirResult.getOllirClass();
@@ -143,14 +143,7 @@ public class CFGTest extends JmmTestEnv{
         var insts = method.getInstructions();
 
         for (int i = 0; i < insts.size() - 1; i++) {
-            assertEquals("a",1, insts.get(i).getSuccessors().size());
+            assertEquals("a", 1, insts.get(i).getSuccessors().size());
         }
-    }
-
-    private Method  getMethod(OllirResult ollirResult, String name) {
-        return ollirResult.getOllirClass().getMethods().stream()
-                .filter(m -> m.getMethodName().equals(name))
-                .findFirst()
-                .orElseThrow();
     }
 }

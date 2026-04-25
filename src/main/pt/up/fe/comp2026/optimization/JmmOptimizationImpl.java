@@ -6,6 +6,7 @@ import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
+import pt.up.fe.comp2026.optimization.liveness.LivenessAnalyzer;
 
 import java.util.ArrayList;
 import java.util.Collections;
