@@ -31,6 +31,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private final OptUtils ollirTypes;
     private final OllirExprGeneratorVisitor exprVisitor;
     private MethodSymbol currentMethod;
+    private JmmNode currentClass;
 
     public OllirGeneratorVisitor(SymbolTable table) {
         this.table = table;
@@ -282,12 +283,23 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitMethodDecl(JmmNode node, Void unused) {
+
         currentMethod = table.getMethod(TypeUtils.with(table).getMethodDeclSignature(node)).orElseThrow();
         StringBuilder code = new StringBuilder(".method ");
 
-        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
-        if (isPublic) code.append("public ");
-        if (node.getObject("isStatic", Boolean.class)) code.append("static ");
+        String visibility = node.getOptional("visibility").orElse("");
+
+        if (visibility.equals("public")) {
+            code.append("public ");
+        } else if (visibility.equals("private")) {
+            code.append("private ");
+        } else if (visibility.equals("protected")) {
+            code.append("protected ");
+        }
+
+        if (node.getObject("isStatic", Boolean.class)) {
+            code.append("static ");
+        }
 
         var name = ollirTypes.sanitizeId(node.get("name"));
         code.append(name);
@@ -319,6 +331,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitClass(JmmNode node, Void unused) {
+        currentClass = node;
         StringBuilder code = new StringBuilder();
         code.append(NL).append(table.getClassName());
         node.getOptional("parent").ifPresent(parent -> code.append(" extends ").append(parent));
@@ -334,15 +347,43 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             code.append(visit(child));
         }
         code.append(R_BRACKET);
+        currentClass = null;
         return code.toString();
     }
 
     private String buildConstructor() {
+        // Fix 1: invokespecial must annotate 'this' with the super class type
+        String superName = (currentClass != null && currentClass.getOptional("parent").isPresent())
+                ? currentClass.get("parent")
+                : "Object";
+
+        // Fix 2: emit putfield for every field that has an initializer expression
+        StringBuilder fieldInits = new StringBuilder();
+        if (currentClass != null) {
+            for (var varDecl : currentClass.getChildren(VAR_DECL)) {
+                // varDecl children: child(0) = type, child(1) = init expr (optional)
+                if (varDecl.getNumChildren() < 2) continue;
+
+                var fieldName = varDecl.get("name");
+                var fieldOpt = table.getField(fieldName);
+                if (fieldOpt.isEmpty()) continue;
+
+                var typeOllir = ollirTypes.toOllirType(fieldOpt.get().type());
+                var exprResult = exprVisitor.visit(varDecl.getChild(1));
+
+                fieldInits.append(exprResult.getComputation());
+                fieldInits.append("    putfield(this, ")
+                        .append(ollirTypes.sanitizeId(fieldName)).append(typeOllir)
+                        .append(", ").append(exprResult.getCode())
+                        .append(").V").append(END_STMT);
+            }
+        }
+
         return """
                 .construct %s().V {
-                    invokespecial(this, "<init>").V;
-                }
-                """.formatted(table.getClassName());
+                    invokespecial(this.%s, "<init>").V;
+                %s}
+                """.formatted(table.getClassName(), superName, fieldInits);
     }
 
     private String visitProgram(JmmNode node, Void unused) {
