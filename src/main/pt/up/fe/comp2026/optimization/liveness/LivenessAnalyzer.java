@@ -26,6 +26,41 @@ public class LivenessAnalyzer {
             computeNodeDefUse(inst);
         }
     }
+
+    public void computeInOut() {
+        boolean changed = true;
+
+        List<Instruction> instructions = method.getInstructions();
+        List<Instruction> reversedInstructions = new ArrayList<>(instructions);
+        Collections.reverse(reversedInstructions);
+
+        while (changed) {
+            changed = false;
+
+            for (Instruction inst : reversedInstructions) {
+                Set<String> oldIn = in.get(inst);
+                Set<String> oldOut = out.get(inst);
+
+                Set<String> newOut = new HashSet<>();
+                for (Node succ : inst.getSuccessors()) {
+                    if (in.containsKey(succ)) {
+                        newOut.addAll(in.get(succ));
+                    }
+                }
+
+                Set<String> newIn = new HashSet<>(newOut);
+                newIn.removeAll(defs.get(inst));
+                newIn.addAll(uses.get(inst));
+
+                if (!newIn.equals(oldIn) || !newOut.equals(oldOut)) {
+                    in.put(inst, newIn);
+                    out.put(inst, newOut);
+                    changed = true;
+                }
+            }
+        }
+    }
+
     private void computeNodeDefUse(Instruction inst) {
         Set<String> nodeDef = defs.get(inst);
         Set<String> nodeUse = uses.get(inst);

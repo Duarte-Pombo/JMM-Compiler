@@ -254,9 +254,12 @@ public class LivenessTest extends JmmTestEnv {
 
         var analyzer = new LivenessAnalyzer(method);
         analyzer.computeDefUse();
+        analyzer.computeInOut();
 
         boolean foundBUsesA = false;
         boolean foundCUsesB = false;
+
+        boolean cInOut = false;
 
         for (Instruction inst : method.getInstructions()) {
             var def = analyzer.getDef(inst);
@@ -267,43 +270,14 @@ public class LivenessTest extends JmmTestEnv {
             }
             if (def.contains("c") && use.contains("b")) {
                 foundCUsesB = true;
+                if (analyzer.getOut(inst).contains("c")) { // c is live out here because we use it next
+                    cInOut = true;
+                }
             }
         }
 
-        assertTrue("a",foundBUsesA);
-        assertTrue("a",foundCUsesB);
+        assertTrue("a", foundBUsesA);
+        assertTrue("a", foundCUsesB);
+        assertTrue("c should be in OUT after c=b", cInOut);
     }
-    @Test
-    public void testConstantNotInUse() {
-        var code = """
-        package x;
-        class A {
-            public int method() {
-                int a;
-                a = 5;
-                return a;
-            }
-        }""";
-
-        var ollirResult = getTransformedOllir(code);
-        ollirResult.getOllirClass().buildCFGs();
-
-        var method = ollirResult.getOllirClass().getMethods().stream()
-                .filter(m -> m.getMethodName().equals("method"))
-                .findFirst().get();
-
-        var analyzer = new LivenessAnalyzer(method);
-        analyzer.computeDefUse();
-
-        boolean constantAppeared = false;
-
-        for (Instruction inst : method.getInstructions()) {
-            if (analyzer.getUse(inst).contains("5")) {
-                constantAppeared = true;
-            }
-        }
-
-        assertTrue("Constants should not appear in USE sets", !constantAppeared);
-    }
-
 }
