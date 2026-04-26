@@ -300,7 +300,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         argResults.forEach(arg -> computation.append(arg.getComputation()));
 
         var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
-        var callCode = new StringBuilder().append("invokevirtual(this.").append(table.getClassName()).append(", \"").append(node.get("name")).append("\"");
+        var className = ollirTypes.sanitizeId(table.getClassName());
+        var callCode = new StringBuilder().append("invokevirtual(this.").append(className).append(", \"").append(node.get("name")).append("\"");
 
         if (!argsCode.isEmpty()) callCode.append(", ").append(argsCode);
         callCode.append(")").append(ollirReturnType);
