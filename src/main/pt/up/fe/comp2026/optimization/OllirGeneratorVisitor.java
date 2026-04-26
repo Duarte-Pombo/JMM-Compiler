@@ -131,6 +131,25 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             return code.toString();
         }
 
+        if (lhsNode.isInstance(FIELD_ACCESS)) {
+            var recvExpr = exprVisitor.visit(lhsNode.getChild(0));
+            var fieldName = ollirTypes.sanitizeId(lhsNode.get("name"));
+
+            code.append(recvExpr.getComputation());
+            code.append(rhs.getComputation());
+            code.append("putfield(")
+                    .append(recvExpr.getCode())
+                    .append(", ")
+                    .append(fieldName)
+                    .append(typeString)
+                    .append(", ")
+                    .append(rhs.getCode())
+                    .append(").V")
+                    .append(END_STMT);
+
+            return code.toString();
+        }
+
         var lhs = exprVisitor.visit(lhsNode);
         code.append(lhs.getComputation());
         code.append(rhs.getComputation());

@@ -45,7 +45,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         // Array Operations
         addVisit(NEW_ARRAY, this::visitNewArray);
         addVisit(ARRAY_ACCESS, this::visitArrayAccess);
-        addVisit(FIELD_ACCESS, this::visitLengths);
+        addVisit(FIELD_ACCESS, this::visitFieldAccess);
 
         // Object/Method Operations
         addVisit(NEW_OBJECT, this::visitNewObject);
@@ -256,18 +256,30 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return visit(node.getChild(0));
     }
 
-    private OllirExprResult visitLengths(JmmNode node, Void unused) {
-        var arrayExpr = node.getChild(0);
-        var arrayOllir = visit(arrayExpr);
-        if ("length".equals(node.get("name")) && types.getExprType(arrayExpr).isArray()) {
+    private OllirExprResult visitFieldAccess(JmmNode node, Void unused) {
+        var recvNode = node.getChild(0);
+        var recvOllir = visit(recvNode);
+        var fieldName = ollirTypes.sanitizeId(node.get("name"));
+        var fieldType = ollirTypes.toOllirType(types.getExprType(node));
+
+        if ("length".equals(node.get("name")) && types.getExprType(recvNode).isArray()) {
             String resultTemp = ollirTypes.nextTemp() + ".i32";
             StringBuilder computation = new StringBuilder();
-            computation.append(arrayOllir.getComputation());
+            computation.append(recvOllir.getComputation());
             computation.append(resultTemp).append(SPACE).append(ASSIGN).append(".i32").append(SPACE)
-                    .append("arraylength(").append(arrayOllir.getCode()).append(").i32").append(END_STMT);
+                    .append("arraylength(").append(recvOllir.getCode()).append(").i32").append(END_STMT);
             return new OllirExprResult(resultTemp, computation);
         }
-        return null;
+
+        var resultTemp = ollirTypes.nextTemp() + fieldType;
+        StringBuilder computation = new StringBuilder();
+        computation.append(recvOllir.getComputation());
+        computation.append(resultTemp).append(SPACE).append(ASSIGN).append(fieldType).append(SPACE)
+                .append("getfield(").append(recvOllir.getCode()).append(", ")
+                .append(fieldName).append(fieldType)
+                .append(")").append(fieldType).append(END_STMT);
+
+        return new OllirExprResult(resultTemp, computation);
     }
 
     private OllirExprResult visitNegation(JmmNode node, Void unused) {
