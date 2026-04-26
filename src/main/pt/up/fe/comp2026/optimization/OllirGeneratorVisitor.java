@@ -234,11 +234,23 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var idxOllir = exprVisitor.visit(idx);
         var valOllir = exprVisitor.visit(val);
 
+        var arrayType = types.getVariableType(array, node)
+                .orElseThrow(() -> new RuntimeException("Array variable '" + array + "' is not defined in current scope"));
+        String arrayTypeOllir = ollirTypes.toOllirType(arrayType);
+
         var elementType = types.getExprType(val);
         String elementTypeOllir = ollirTypes.toOllirType(elementType);
 
         StringBuilder code = new StringBuilder();
-        String arrayCode = ollirTypes.sanitizeId(array) + ".array" + elementTypeOllir;
+        String arrayCode = ollirTypes.sanitizeId(array) + arrayTypeOllir;
+
+        if (isFieldReference(array, node)) {
+            arrayCode = ollirTypes.nextTemp() + arrayTypeOllir;
+            code.append(arrayCode).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
+                    .append("getfield(this, ")
+                    .append(ollirTypes.sanitizeId(array)).append(arrayTypeOllir)
+                    .append(")").append(arrayTypeOllir).append(END_STMT);
+        }
 
         code.append(idxOllir.getComputation());
         code.append(valOllir.getComputation());
