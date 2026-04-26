@@ -190,8 +190,7 @@ public class LivenessTest extends JmmTestEnv {
                 defCount++;
             }
         }
-
-        assertTrue("Variable a should be defined more than once", defCount >= 2);
+        assertTrue("Variable a should be defined more than once", defCount == 2);
     }
 
     @Test
