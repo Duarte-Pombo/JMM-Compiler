@@ -4,8 +4,8 @@ import org.junit.Test;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp2026.analysis.JmmAnalysisImpl;
 import pt.up.fe.comp2026.optimization.JmmOptimizationImpl;
-import pt.up.fe.comp2026.optimization.liveness.LivenessAnalyzer;
-import pt.up.fe.comp2026.optimization.liveness.InterferenceGraph;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.LivenessAnalyzer;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
 import pt.up.fe.comp.test.env.JmmTestEnv;
 
 public class InterferenceGraphTest extends JmmTestEnv {

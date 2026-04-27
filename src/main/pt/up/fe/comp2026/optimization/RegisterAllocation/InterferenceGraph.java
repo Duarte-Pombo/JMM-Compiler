@@ -1,6 +1,5 @@
-package pt.up.fe.comp2026.optimization.liveness;
+package pt.up.fe.comp2026.optimization.RegisterAllocation;
 import org.specs.comp.ollir.Method;
-import org.specs.comp.ollir.Node;
 import org.specs.comp.ollir.inst.Instruction;
 import java.util.*;
 
@@ -42,8 +41,5 @@ public class InterferenceGraph {
     }
     public Set<String> getNeighbors(String node) {
         return graph.getOrDefault(node, Collections.emptySet());
-    }
-    public Map<String, Set<String>> getGraph() {
-        return graph;
     }
 }

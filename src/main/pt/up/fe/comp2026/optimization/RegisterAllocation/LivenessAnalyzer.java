@@ -1,4 +1,4 @@
-package pt.up.fe.comp2026.optimization.liveness;
+package pt.up.fe.comp2026.optimization.RegisterAllocation;
 import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import java.util.*;
