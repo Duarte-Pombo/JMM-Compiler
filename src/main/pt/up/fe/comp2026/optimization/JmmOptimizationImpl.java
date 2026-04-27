@@ -6,7 +6,7 @@ import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
-import pt.up.fe.comp2026.optimization.liveness.LivenessAnalyzer;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.LivenessAnalyzer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -139,6 +139,42 @@ public class JmmOptimizationImpl implements JmmOptimization {
         }
 
         ollirResult.getOllirClass().buildCFGs();
+
+        String regAllocConfig = ollirResult.config().get("registerAllocation");
+
+        if (regAllocConfig != null) {
+            int n = Integer.parseInt(regAllocConfig);
+            if (n >= 0) {
+                for (var method : ollirResult.getOllirClass().getMethods()) {
+                    var analyzer = new LivenessAnalyzer(method);
+                    analyzer.computeDefUse();
+                    analyzer.computeInOut();
+
+                    var interferenceGraph = new pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph(method, analyzer);
+                    interferenceGraph.buildGraph();
+
+                    boolean colored = false;
+                    int k = method.isStaticMethod() ? 0 : 1;
+                    k += method.getParams().size();
+
+                    if (n > 0) {
+                        var coloring = new pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring(method, interferenceGraph, n);
+                        colored = coloring.colorGraph();
+                        if (!colored) {
+                            throw new RuntimeException("Could not allocate registers with k=" + n + " for method " + method.getMethodName());
+                        }
+                    } else if (n == 0) {
+                        while (!colored) {
+                            var coloring = new pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring(method, interferenceGraph, k);
+                            colored = coloring.colorGraph();
+                            if (!colored) {
+                                k++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         return ollirResult;
     }
