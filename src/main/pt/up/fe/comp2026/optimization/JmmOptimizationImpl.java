@@ -5,10 +5,16 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp.jmm.report.Stage;
+import pt.up.fe.comp2026.CompilerConfig;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
-
+import pt.up.fe.comp2026.optimization.RegisterAllocation.LivenessAnalyzer;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
 
@@ -137,7 +143,45 @@ public class JmmOptimizationImpl implements JmmOptimization {
             System.out.println(ollirResult.getOllirCode());
         }
 
-        //TODO: Do your OLLIR-based optimizations here
+        ollirResult.getOllirClass().buildCFGs();
+
+        var n  = CompilerConfig.getRegisterAllocation(ollirResult.config());
+
+        if (n != -1) {
+            for (var method : ollirResult.getOllirClass().getMethods()) {
+                var analyzer = new LivenessAnalyzer(method);
+                analyzer.computeDefUse();
+                analyzer.computeInOut();
+
+                var interferenceGraph = new InterferenceGraph(method, analyzer);
+                interferenceGraph.buildGraph();
+
+                int minK = method.isStaticMethod() ? 0 : 1;
+                minK += method.getParams().size();
+                int maxK = (n == 0) ? Integer.MAX_VALUE : minK + n;
+
+                boolean colored = false;
+                int k = minK;
+                while (!colored && k <= maxK) {
+                    var coloring = new GraphColoring(method, interferenceGraph, k);
+                    colored = coloring.colorGraph();
+                    if (!colored) {
+                        k++;
+                    }
+                }
+
+                if (!colored) {
+                    int minimumLocalRegisters = k - minK;
+                    String message = "Register allocation failed for method '" + method.getMethodName()
+                            + "': -r=" + n + " allows " + n + " local register(s), but at least "
+                            + minimumLocalRegisters + " are required (" + k
+                            + " total JVM local variable slot(s), including this/parameters).";
+
+                    ollirResult.reports().add(Report.newError(Stage.LLIR_OPTIMIZATION, -1, -1, message, null));
+                    return ollirResult;
+                }
+            }
+        }
 
         return ollirResult;
     }
