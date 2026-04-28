@@ -66,12 +66,12 @@ public class LivenessAnalyzer {
         Set<String> nodeUse = uses.get(inst);
         if (inst instanceof AssignInstruction assignInst) {
             if (assignInst.getDest() instanceof ArrayOperand arrOp) {
-                nodeUse.add(arrOp.getName());
+                addUse(arrOp.getName(), nodeUse);
                 for (Element idx : arrOp.getIndexOperands()) {
                     extractUses(idx, nodeUse);
                 }
             } else if (assignInst.getDest() instanceof Operand op) {
-                nodeDef.add(op.getName());
+                addDef(op.getName(), nodeDef);
             }
             extractUsesInst(assignInst.getRhs(), nodeUse);
         } else {
@@ -81,7 +81,9 @@ public class LivenessAnalyzer {
     private void extractUsesInst(Instruction inst, Set<String> nodeUse) {
         if (inst == null) return;
         if (inst instanceof CallInstruction callInst) {
-            extractUses(callInst.getCaller(), nodeUse);
+            if (!(callInst instanceof InvokeStaticInstruction) && !(callInst instanceof NewInstruction)) {
+                extractUses(callInst.getCaller(), nodeUse);
+            }
             if (callInst.getArguments() != null) {
                 for (Element el : callInst.getArguments()) {
                     extractUses(el, nodeUse);
@@ -104,7 +106,6 @@ public class LivenessAnalyzer {
             extractUses(singleOpInst.getSingleOperand(), nodeUse);
         } else if (inst instanceof FieldInstruction fieldInst) {
             extractUses(fieldInst.getObject(), nodeUse);
-            extractUses(fieldInst.getField(), nodeUse);
             if (fieldInst instanceof PutFieldInstruction putFieldInst) {
                 extractUses(putFieldInst.getValue(), nodeUse);
             }
@@ -114,18 +115,32 @@ public class LivenessAnalyzer {
     }
     private void extractUses(Element el, Set<String> nodeUse) {
         if (el == null) return;
-        if (el instanceof Operand op) {
-            if (!op.getName().equals("this")) {
-                nodeUse.add(op.getName());
-            }
-        } else if (el instanceof ArrayOperand arrOp) {
-            if (!arrOp.getName().equals("this")) {
-                nodeUse.add(arrOp.getName());
-            }
+        if (el instanceof ArrayOperand arrOp) {
+            addUse(arrOp.getName(), nodeUse);
             for (Element idx : arrOp.getIndexOperands()) {
                 extractUses(idx, nodeUse);
             }
+        } else if (el instanceof Operand op) {
+            addUse(op.getName(), nodeUse);
         }
+    }
+    private void addUse(String name, Set<String> nodeUse) {
+        if (isAllocatableVariable(name)) {
+            nodeUse.add(name);
+        }
+    }
+    private void addDef(String name, Set<String> nodeDef) {
+        if (isAllocatableVariable(name)) {
+            nodeDef.add(name);
+        }
+    }
+    private boolean isAllocatableVariable(String name) {
+        if (name.equals("this")) {
+            return false;
+        }
+
+        var descriptor = method.getVarTable().get(name);
+        return descriptor != null && descriptor.getScope() != VarScope.FIELD;
     }
     public Set<String> getDef(Node node) { return defs.getOrDefault(node, Collections.emptySet()); }
     public Set<String> getUse(Node node) { return uses.getOrDefault(node, Collections.emptySet()); }
