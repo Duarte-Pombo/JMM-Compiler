@@ -7,7 +7,8 @@ import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.LivenessAnalyzer;
-
+import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
+import pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -144,33 +145,32 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
         if (regAllocConfig != null) {
             int n = Integer.parseInt(regAllocConfig);
-            if (n >= 0) {
+            if (n != -1) {
                 for (var method : ollirResult.getOllirClass().getMethods()) {
                     var analyzer = new LivenessAnalyzer(method);
                     analyzer.computeDefUse();
                     analyzer.computeInOut();
 
-                    var interferenceGraph = new pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph(method, analyzer);
+                    var interferenceGraph = new InterferenceGraph(method, analyzer);
                     interferenceGraph.buildGraph();
 
-                    boolean colored = false;
-                    int k = method.isStaticMethod() ? 0 : 1;
-                    k += method.getParams().size();
+                    int minK = method.isStaticMethod() ? 0 : 1;
+                    minK += method.getParams().size();
+                    int maxK = (n == 0) ? Integer.MAX_VALUE : minK + n;
 
-                    if (n > 0) {
-                        var coloring = new pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring(method, interferenceGraph, n);
+                    boolean colored = false;
+                    int k = minK;
+                    while (!colored && k <= maxK) {
+                        var coloring = new GraphColoring(method, interferenceGraph, k);
                         colored = coloring.colorGraph();
                         if (!colored) {
-                            throw new RuntimeException("Could not allocate registers with k=" + n + " for method " + method.getMethodName());
+                            k++;
                         }
-                    } else if (n == 0) {
-                        while (!colored) {
-                            var coloring = new pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring(method, interferenceGraph, k);
-                            colored = coloring.colorGraph();
-                            if (!colored) {
-                                k++;
-                            }
-                        }
+                    }
+
+                    if (!colored) {
+                        int allowedLocals = n == 0 ? Integer.MAX_VALUE : n;
+                        throw new RuntimeException("Register allocation failed: not enough registers. Minimum required: " + k + ", but only " + allowedLocals + " local registers allowed for n=" + n);
                     }
                 }
             }

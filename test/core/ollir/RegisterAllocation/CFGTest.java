@@ -5,7 +5,6 @@ import pt.up.fe.comp.test.env.JmmTestEnv;
 import org.junit.Test;
 import pt.up.fe.comp2026.analysis.JmmAnalysisImpl;
 import pt.up.fe.comp2026.optimization.JmmOptimizationImpl;
-import org.specs.comp.ollir.Method;
 import pt.up.fe.comp.jmm.report.ReportType;
 
 public class CFGTest extends JmmTestEnv {
@@ -14,7 +13,7 @@ public class CFGTest extends JmmTestEnv {
         super("", "");
     }
 
-    private pt.up.fe.comp.jmm.ollir.OllirResult getTransformedOllir(String code) {
+    private OllirResult getTransformedOllir(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
         var symbolTableResult = analysis.buildSymbolTable(parserResult);
