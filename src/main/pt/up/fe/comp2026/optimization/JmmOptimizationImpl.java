@@ -31,15 +31,31 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
     @Override
     public JmmSemanticsResult transformAst(JmmSemanticsResult semanticsResult) {
-        var root = semanticsResult.getRootNode();
-        var forStmts = new ArrayList<>(root.getDescendants(FOR_STMT));
+        boolean modified;
 
-        for (var forStmt : forStmts) {
+        var root = semanticsResult.getRootNode();
+        for (var forStmt : root.getDescendants(FOR_STMT)) {
             convertForStmt(forStmt);
         }
 
+        do {
+            modified = false;
+
+            ConstantFoldingVisitor folder = new ConstantFoldingVisitor();
+            folder.visit(root);
+            modified |= folder.isModified();
+
+            ConstantPropagationVisitor propagator = new ConstantPropagationVisitor();
+            propagator.visit(root);
+            modified |= propagator.isModified();
+
+
+        } while (modified);
+
         return semanticsResult;
     }
+
+
 
     private void convertForStmt(JmmNode forStmt) {
         int childIndex = 0;
