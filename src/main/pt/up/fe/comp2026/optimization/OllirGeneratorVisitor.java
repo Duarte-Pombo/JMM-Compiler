@@ -380,10 +380,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
 
         return """
-                .construct %s().V {
+                .construct "<init>"().V {
                     invokespecial(this.%s, "<init>").V;
                 %s}
-                """.formatted(table.getClassName(), superName, fieldInits);
+                """.formatted(superName, fieldInits);
     }
 
     private String visitProgram(JmmNode node, Void unused) {
