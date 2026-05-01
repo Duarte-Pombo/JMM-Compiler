@@ -203,8 +203,7 @@ public class ConstantFoldingVisitor  extends PostorderJmmVisitor<SymbolTable, Vo
     }
 
     private boolean isLiteral(JmmNode node) {
-        String kind = String.valueOf(node.getKind());
-        return kind.equals("IntegerLiteral") || kind.equals("BooleanLiteral");
+        return node.isInstance(JmmKind.INTEGER_LITERAL) || node.isInstance(JmmKind.BOOLEAN_LITERAL);
     }
 
     public boolean isModified() {

@@ -40,23 +40,26 @@ public class JmmOptimizationImpl implements JmmOptimization {
         boolean modified;
 
         var root = semanticsResult.getRootNode();
+
         for (var forStmt : root.getDescendants(FOR_STMT)) {
             convertForStmt(forStmt);
         }
 
-        do {
-            modified = false;
+        String optimizeFlag = semanticsResult.config().getOrDefault("optimize", "false");
+        if ("true".equals(optimizeFlag)) {
+            do {
+                modified = false;
 
-            ConstantFoldingVisitor folder = new ConstantFoldingVisitor();
-            folder.visit(root);
-            modified |= folder.isModified();
+                ConstantFoldingVisitor folder = new ConstantFoldingVisitor();
+                folder.visit(root);
+                modified |= folder.isModified();
 
-            ConstantPropagationVisitor propagator = new ConstantPropagationVisitor();
-            propagator.visit(root);
-            modified |= propagator.isModified();
+                ConstantPropagationVisitor propagator = new ConstantPropagationVisitor();
+                propagator.visit(root);
+                modified |= propagator.isModified();
 
-
-        } while (modified);
+            } while (modified);
+        }
 
         return semanticsResult;
     }
