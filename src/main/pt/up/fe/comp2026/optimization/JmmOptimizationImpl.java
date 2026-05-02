@@ -59,13 +59,13 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 propagator.visit(root, table);
                 modified |= propagator.isModified();
 
+                eliminateBranches(root);
+
             } while (modified);
         }
 
         return semanticsResult;
     }
-
-
 
     private void convertForStmt(JmmNode forStmt) {
         int childIndex = 0;
@@ -204,6 +204,69 @@ public class JmmOptimizationImpl implements JmmOptimization {
         }
 
         return ollirResult;
+    }
+
+    private void eliminateBranches(JmmNode root) {
+        var ifStmts = new ArrayList<>(root.getDescendants(IF_ELSE_STMT));
+
+        for (var ifStmt : ifStmts) {
+            JmmNode condition = ifStmt.getChild(0);
+            Boolean condValue = evaluateStaticCondition(condition);
+
+            if (condValue != null) {
+                if (condValue) {
+                    ifStmt.replace(ifStmt.getChild(1));
+                } else {
+                    ifStmt.replace(ifStmt.getChild(2));
+                }
+            }
+        }
+    }
+
+    private Boolean evaluateStaticCondition(JmmNode node) {
+        if (node.isInstance(BOOLEAN_LITERAL)) {
+            return "true".equals(node.get("value"));
+        }
+
+        if (node.isInstance(PARENTHESES_EXPR)) {
+            return evaluateStaticCondition(node.getChild(0));
+        }
+
+        if (node.isInstance(NEGATION_EXPR) || node.isInstance(UNARY_EXPR)) {
+            var op = node.getOptional("op").orElse("");
+            if ("!".equals(op)) {
+                Boolean childVal = evaluateStaticCondition(node.getChild(0));
+                return childVal != null ? !childVal : null;
+            }
+        }
+
+        if (node.isInstance(BINARY_EXPR)) {
+            String op = node.getOptional("op").orElse("");
+
+            if ("&&".equals(op)) {
+                Boolean left = evaluateStaticCondition(node.getChild(0));
+                if (Boolean.FALSE.equals(left)) return false; // Short-circuit
+
+                Boolean right = evaluateStaticCondition(node.getChild(1));
+                if (Boolean.FALSE.equals(right)) return false;
+
+                if (Boolean.TRUE.equals(left) && Boolean.TRUE.equals(right)) return true;
+                return null;
+            }
+
+            if ("||".equals(op)) {
+                Boolean left = evaluateStaticCondition(node.getChild(0));
+                if (Boolean.TRUE.equals(left)) return true; // Short-circuit
+
+                Boolean right = evaluateStaticCondition(node.getChild(1));
+                if (Boolean.TRUE.equals(right)) return true;
+
+                if (Boolean.FALSE.equals(left) && Boolean.FALSE.equals(right)) return false;
+                return null;
+            }
+        }
+
+        return null;
     }
 
 }
