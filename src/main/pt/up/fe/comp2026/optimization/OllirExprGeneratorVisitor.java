@@ -335,9 +335,14 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
         var className = ollirTypes.sanitizeId(table.getClassName());
-        var callCode = new StringBuilder().append("invokevirtual(this.").append(className).append(", \"").append(node.get("name")).append("\"");
 
-        if (!argsCode.isEmpty()) callCode.append(", ").append(argsCode);
+        var callCode = new StringBuilder()
+                .append("invokevirtual(this.").append(className)
+                .append(", \"").append(node.get("name")).append("\"");
+
+        if (!argsCode.isEmpty()) {
+            callCode.append(", ").append(argsCode);
+        }
         callCode.append(")").append(ollirReturnType);
 
         if (".V".equals(ollirReturnType)) {
@@ -346,11 +351,14 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         }
 
         var code = ollirTypes.nextTemp() + ollirReturnType;
-        computation.append(code).append(SPACE).append(ASSIGN).append(ollirReturnType).append(SPACE).append(callCode).append(END_STMT);
+        computation.append(code).append(SPACE)
+                   .append(ASSIGN).append(ollirReturnType).append(SPACE)
+                   .append(callCode).append(END_STMT);
+                   
         return new OllirExprResult(code, computation);
     }
 
-private OllirExprResult visitNewObject(JmmNode node, Void unused) {
+    private OllirExprResult visitNewObject(JmmNode node, Void unused) {
         var className = node.get("name");
         var temp = ollirTypes.nextTemp();
         var ollirType = "." + className;
