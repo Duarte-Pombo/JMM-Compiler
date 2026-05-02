@@ -41,7 +41,7 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
         if (leftSide.isInstance(JmmKind.VAR_REF_EXPR)) {
             String varName = leftSide.get("name");
 
-            // NEW: Do not propagate fields! They can be mutated by side-effects.
+            // Do not propagate fields! They can be mutated by side-effects.
             if (isFieldReference(varName, node, table)) {
                 constantMap.remove(varName);
                 return null;
@@ -65,7 +65,7 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
 
         String varName = node.get("name");
 
-        // NEW: Ignore fields during propagation
+        // Ignore fields during propagation
         if (isFieldReference(varName, node, table)) {
             return null;
         }
