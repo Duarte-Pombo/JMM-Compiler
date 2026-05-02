@@ -350,14 +350,31 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(code, computation);
     }
 
-    private OllirExprResult visitNewObject(JmmNode node, Void unused) {
+private OllirExprResult visitNewObject(JmmNode node, Void unused) {
         var className = node.get("name");
         var temp = ollirTypes.nextTemp();
         var ollirType = "." + className;
         var computation = new StringBuilder();
+
+        // visit all arguments passed to the constructor
+        var argResults = node.getChildren().stream().map(this::visit).toList();
+        
+        // append the computations for the arguments FIRST
+        argResults.forEach(arg -> computation.append(arg.getComputation()));
+        
+        // extract the variables/temps representing the argument values
+        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+
+        // instantiate the object via 'new'
         computation.append(temp).append(ollirType).append(SPACE).append(ASSIGN).append(ollirType).append(SPACE)
-                .append("new(").append(className).append(")").append(ollirType).append(END_STMT)
-                .append("invokespecial(").append(temp).append(ollirType).append(", \"<init>\").V").append(END_STMT);
+                .append("new(").append(className).append(")").append(ollirType).append(END_STMT);
+
+        // call the constructor (<init>) with the evaluated arguments
+        computation.append("invokespecial(").append(temp).append(ollirType).append(", \"<init>\"");
+        if (!argsCode.isEmpty()) {
+            computation.append(", ").append(argsCode);
+        }
+        computation.append(").V").append(END_STMT);
         return new OllirExprResult(temp + ollirType, computation);
     }
 
