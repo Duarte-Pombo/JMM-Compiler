@@ -47,6 +47,9 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(ARRAY_ACCESS, this::visitArrayAccess);
         addVisit(FIELD_ACCESS, this::visitFieldAccess);
 
+        addVisit(NEW_ARRAY_BY_EXTENSION, this::visitNewArrayByExtension);
+        addVisit(ARRAY_ELEM, this::visitArrayElem);
+
         // Object/Method Operations
         addVisit(NEW_OBJECT, this::visitNewObject);
         addVisit(METHOD_CALL, this::visitMethodCall);
@@ -250,6 +253,37 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
                 .append(arrayOllir.getCode()).append("[").append(idxOllir.getCode()).append("]").append(elementTypeOllir).append(END_STMT);
 
         return new OllirExprResult(resultTemp, computation);
+    }
+
+    private OllirExprResult visitNewArrayByExtension(JmmNode node, Void unused) {
+        var arrayInitNode = node.getChild(0);
+        var elements = arrayInitNode.getChildren();
+        int size = elements.size();
+
+        var arrayTypeOllir = ollirTypes.toOllirType(types.getExprType(node));
+        var elementTypeOllir = arrayTypeOllir.replaceFirst("\\.array", "");
+
+        String arrayTemp = ollirTypes.nextTemp() + arrayTypeOllir;
+        StringBuilder computation = new StringBuilder();
+
+        String sizeCode = size + ".i32";
+        computation.append(arrayTemp).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
+                .append("new(array, ").append(sizeCode).append(")").append(arrayTypeOllir).append(END_STMT);
+
+        for (int i = 0; i < size; i++) {
+            var elemOllir = visit(elements.get(i));
+
+            computation.append(elemOllir.getComputation());
+            computation.append(arrayTemp).append("[").append(i).append(".i32]").append(elementTypeOllir)
+                    .append(SPACE).append(ASSIGN).append(elementTypeOllir).append(SPACE)
+                    .append(elemOllir.getCode()).append(END_STMT);
+        }
+
+        return new OllirExprResult(arrayTemp, computation);
+    }
+
+    private OllirExprResult visitArrayElem(JmmNode node, Void unused) {
+        return visit(node.getChild(0));
     }
 
     private OllirExprResult visitParentheses(JmmNode node, Void unused) {
