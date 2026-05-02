@@ -8,12 +8,15 @@ import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2026.CompilerConfig;
+import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.LivenessAnalyzer;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Set;
+import java.util.HashSet;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
 
@@ -61,6 +64,11 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 modified |= propagator.isModified();
 
                 eliminateBranches(root);
+
+                TypeUtils types = new TypeUtils(semanticsResult.getSymbolTable());
+                for (var methodDecl : root.getDescendants(METHOD_DECL)) {
+                    modified |= eliminateDeadCode(methodDecl, semanticsResult.getSymbolTable(), types);
+                }
 
             } while (modified);
         }
@@ -295,6 +303,89 @@ public class JmmOptimizationImpl implements JmmOptimization {
         }
 
         return null;
+    }
+
+    private boolean eliminateDeadCode(JmmNode methodDecl, pt.up.fe.comp.jmm.analysis.table.SymbolTable table, TypeUtils types) {
+        boolean changed = false;
+        var methodSig = types.getMethodDeclSignature(methodDecl);
+        var methodOpt = table.getMethod(methodSig);
+        if (methodOpt.isEmpty()) return false;
+        var methodSymbol = methodOpt.get();
+
+        // find all variables that are read within this method
+        Set<String> readVars = new HashSet<>();
+        for (var ref : methodDecl.getDescendants(VAR_REF_EXPR)) {
+            JmmNode parent = ref.getParent();
+            if (parent.isInstance(ASSIGN_STMT) && parent.getChild(0) == ref) {
+                continue;
+            }
+            readVars.add(ref.get("name"));
+        }
+
+        // eliminate dead standard assignments
+        for (var assign : methodDecl.getDescendants(ASSIGN_STMT)) {
+            var lhs = assign.getChild(0);
+            if (!lhs.isInstance(VAR_REF_EXPR)) continue;
+
+            String varName = lhs.get("name");
+
+            // protect class fields
+            boolean isLocal = methodSymbol.getLocalVariable(varName).isPresent();
+            boolean isParam = methodSymbol.getParameter(varName).isPresent();
+            if (!isLocal && !isParam) continue;
+
+            // kill unread var assignments
+            if (!readVars.contains(varName)) {
+                JmmNode rhs = assign.getChild(1);
+
+                // preserve side effects by converting to an ExprStmt
+                if (hasSideEffects(rhs)) {
+                    var exprStmt = new JmmNodeImpl(EXPR_STMT);
+                    exprStmt.add(rhs);
+                    assign.replace(exprStmt);
+                } else {
+                    // safe to completely delete
+                    assign.replace(new JmmNodeImpl(COMPOUND_STMT));
+                }
+                changed = true;
+            }
+        }
+
+        // eliminate dead array assignments
+        for (var arrayAssign : methodDecl.getDescendants(ARRAY_ASSIGN_STMT)) {
+            String varName = arrayAssign.get("var");
+            boolean isLocal = methodSymbol.getLocalVariable(varName).isPresent();
+
+            // no elimination of array mutations on parameters or fields
+            if (!isLocal) continue;
+
+            // If the local array is never read from anywhere, mutations to it are dead
+            if (!readVars.contains(varName)) {
+                JmmNode idx = arrayAssign.getChild(0);
+                JmmNode val = arrayAssign.getChild(1);
+
+                // Ensure the index or value computations don't have side effects before deleting
+                if (!hasSideEffects(idx) && !hasSideEffects(val)) {
+                    arrayAssign.replace(new JmmNodeImpl(COMPOUND_STMT));
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    private boolean hasSideEffects(JmmNode node) {
+        if (node.isInstance(METHOD_CALL) ||
+            node.isInstance(IMPLICIT_CALL) ||
+            node.isInstance(NEW_OBJECT)) {
+            return true;
+        }
+        // Recursively check children
+        for (JmmNode child : node.getChildren()) {
+            if (hasSideEffects(child)) return true;
+        }
+        return false;
     }
 
 }
