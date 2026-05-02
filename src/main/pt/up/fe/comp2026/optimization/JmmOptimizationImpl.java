@@ -40,6 +40,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
         boolean modified;
 
         var root = semanticsResult.getRootNode();
+        var table = semanticsResult.getSymbolTable();
 
         for (var forStmt : root.getDescendants(FOR_STMT)) {
             convertForStmt(forStmt);
@@ -51,11 +52,11 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 modified = false;
 
                 ConstantFoldingVisitor folder = new ConstantFoldingVisitor();
-                folder.visit(root);
+                folder.visit(root, table);
                 modified |= folder.isModified();
 
                 ConstantPropagationVisitor propagator = new ConstantPropagationVisitor();
-                propagator.visit(root);
+                propagator.visit(root, table);
                 modified |= propagator.isModified();
 
             } while (modified);

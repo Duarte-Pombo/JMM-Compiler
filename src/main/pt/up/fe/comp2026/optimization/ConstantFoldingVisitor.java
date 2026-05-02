@@ -65,6 +65,7 @@ public class ConstantFoldingVisitor  extends PostorderJmmVisitor<SymbolTable, Vo
             case "%": {
                 var leftInt = Integer.parseInt(left.get("value"));
                 var rightInt = Integer.parseInt(right.get("value"));
+                if (rightInt == 0) return null;
                 resultValue = String.valueOf(leftInt % rightInt);
                 newNodeKind = JmmKind.INTEGER_LITERAL;
                 break;

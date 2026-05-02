@@ -4,6 +4,7 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
+import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 
 import java.util.HashMap;
@@ -39,6 +40,13 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
 
         if (leftSide.isInstance(JmmKind.VAR_REF_EXPR)) {
             String varName = leftSide.get("name");
+
+            // NEW: Do not propagate fields! They can be mutated by side-effects.
+            if (isFieldReference(varName, node, table)) {
+                constantMap.remove(varName);
+                return null;
+            }
+
             if (isLiteral(rightSide)) {
                 constantMap.put(varName, rightSide);
             } else {
@@ -56,6 +64,12 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
         }
 
         String varName = node.get("name");
+
+        // NEW: Ignore fields during propagation
+        if (isFieldReference(varName, node, table)) {
+            return null;
+        }
+
         if (constantMap.containsKey(varName)) {
             JmmNode constantNode = constantMap.get(varName);
             JmmNode newNode = new JmmNodeImpl(constantNode.getKind());
@@ -95,13 +109,8 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
 
     private Void handleWhile(JmmNode node, SymbolTable table) {
         invalidateAssignedVars(node.getChild(1));
-
-        // Visit condition
         visit(node.getChild(0), table);
-
-        // Visit body
         visit(node.getChild(1), table);
-
         return null;
     }
 
@@ -115,6 +124,21 @@ public class ConstantPropagationVisitor extends AJmmVisitor<SymbolTable, Void> {
 
     private boolean isLiteral(JmmNode node) {
         return node.isInstance(JmmKind.INTEGER_LITERAL) || node.isInstance(JmmKind.BOOLEAN_LITERAL);
+    }
+
+    private boolean isFieldReference(String varName, JmmNode scopeNode, SymbolTable table) {
+        TypeUtils types = new TypeUtils(table);
+        var methodDecl = scopeNode.getAncestor(JmmKind.METHOD_DECL);
+        if (methodDecl.isPresent()) {
+            var signature = types.getMethodDeclSignature(methodDecl.get());
+            var method = table.getMethod(signature);
+            if (method.isPresent()) {
+                if (method.get().getLocalVariable(varName).isPresent() || method.get().getParameter(varName).isPresent()) {
+                    return false;
+                }
+            }
+        }
+        return table.getField(varName).isPresent();
     }
 
     public boolean isModified() {

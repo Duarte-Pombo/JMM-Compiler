@@ -1,0 +1,15 @@
+package cp2.extensions.ollir.optimization.jmm;
+
+class PropWithSideEffects {
+    int f;
+
+    public void mutate() {
+        f = 2;
+    }
+
+    public int readAfterCall() {
+        f = 1;
+        this.mutate();
+        return f;
+    }
+}
