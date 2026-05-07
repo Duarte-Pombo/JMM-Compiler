@@ -14,7 +14,6 @@ import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
 
@@ -30,8 +29,6 @@ public class JmmOptimizationImpl implements JmmOptimization {
         // Visit the AST and obtain OLLIR code
         var ollirCode = visitor.visit(loweredSemantics.getRootNode());
 
-//        System.out.println("\nOLLIR:\n\n" + ollirCode);
-
         return new OllirResult(loweredSemantics, ollirCode, Collections.emptyList());
     }
 
@@ -44,6 +41,10 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
         for (var forStmt : root.getDescendants(FOR_STMT)) {
             convertForStmt(forStmt);
+        }
+
+        for (var doWhileStmt : root.getDescendants(DO_WHILE_STMT)) {
+            convertDoWhileStmt(doWhileStmt);
         }
 
         String optimizeFlag = semanticsResult.config().getOrDefault("optimize", "false");
@@ -153,6 +154,29 @@ public class JmmOptimizationImpl implements JmmOptimization {
         assign.add(lhs);
         assign.add(binExpr);
         return assign;
+    }
+
+    private void convertDoWhileStmt(JmmNode doWhileStmt) {
+        var body = doWhileStmt.getChild(0);
+        var condition = doWhileStmt.getChild(1);
+
+        var lowered = new JmmNodeImpl(COMPOUND_STMT);
+        lowered.add(body);
+
+        var whileNode = new JmmNodeImpl(WHILE_STMT);
+        whileNode.add(condition);
+        whileNode.add(cloneSubtree(body));
+
+        lowered.add(whileNode);
+        doWhileStmt.replace(lowered);
+    }
+
+    private JmmNode cloneSubtree(JmmNode node) {
+        var copy = node.copyDeep(node.getKind());
+        for (var child : node.getChildren()) {
+            copy.add(cloneSubtree(child));
+        }
+        return copy;
     }
 
     @Override
