@@ -241,7 +241,11 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 if (condValue) {
                     ifStmt.replace(ifStmt.getChild(1));
                 } else {
-                    ifStmt.replace(ifStmt.getChild(2));
+                    if (ifStmt.getNumChildren() > 2) {
+                        ifStmt.replace(ifStmt.getChild(2));
+                    } else {
+                        ifStmt.replace(new JmmNodeImpl(COMPOUND_STMT));
+                    }
                 }
             }
         }
