@@ -223,6 +223,95 @@ public class AssignmentsTest extends JmmTestEnv {
         assertEquals("aaa",1, errors.size());
     }
 
+    @Test
+    public void binaryExpressionAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public void m() {
+                        int a;
+                        int b;
+                        (a + b) = 1;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
+    @Test
+    public void methodCallAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int f() {
+                        return 0;
+                    }
+                    public void m() {
+                        f() = 1;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
+    @Test
+    public void newObjectAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public void m() {
+                        A other;
+                        other = new A();
+                        new A() = other;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
+    @Test
+    public void literalAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public void m() {
+                        int a;
+                        1 = a;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
+    @Test
+    public void negationAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public void m() {
+                        boolean b;
+                        (!b) = false;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
+    @Test
+    public void arrayLengthAsAssigneeShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public void m() {
+                        int[] arr;
+                        arr = new int[3];
+                        arr.length = 2;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
