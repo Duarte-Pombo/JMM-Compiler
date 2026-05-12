@@ -312,6 +312,23 @@ public class AssignmentsTest extends JmmTestEnv {
         assertTrue("Expected semantic error for non-assignable LHS", semantics.getReports(ReportType.ERROR).size() > 0);
     }
 
+    @Test
+    public void arrayElementFromObjectFieldAsAssigneeShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int[] foo;
+
+                    public void m() {
+                        A bar;
+                        bar.foo[1] = 7;
+                    }
+                }""");
+
+        assertEquals("Expected no assignment errors", 0, assignmentErrors(semantics).size());
+        assertEquals("Expected no semantic errors", 0, semantics.getReports(ReportType.ERROR).size());
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();

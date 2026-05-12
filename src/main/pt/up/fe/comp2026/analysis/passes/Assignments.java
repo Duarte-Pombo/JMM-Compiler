@@ -19,8 +19,14 @@ public class Assignments extends AnalysisVisitor {
 
     private Void visitAssignStmt(JmmNode assignStmt, SymbolTable table) {
         var types = TypeUtils.with(table);
+        var lhs = assignStmt.getChild(0);
 
-        var lType = types.getExprType(assignStmt.getChild(0));
+        if (!isAssignableTarget(lhs, types)) {
+            addReport(newError(lhs, "Left-hand side of assignment is not assignable"));
+            return null;
+        }
+
+        var lType = types.getExprType(lhs);
         var rType = types.getExprType(assignStmt.getChild(1));
 
         validateAssignment(assignStmt, lType, rType, types);
@@ -103,5 +109,23 @@ public class Assignments extends AnalysisVisitor {
         var message = "Cannot assign expression of type '" + rType.print() +
                 "' to assignee of type '" + lType.print() + "'";
         addReport(newError(reportNode, message));
+    }
+
+    private boolean isAssignableTarget(JmmNode lhs, TypeUtils types) {
+        if (lhs.isInstance(JmmKind.PARENTHESES_EXPR)) {
+            return isAssignableTarget(lhs.getChild(0), types);
+        }
+
+        if (lhs.isInstance(JmmKind.VAR_REF_EXPR) || lhs.isInstance(JmmKind.ARRAY_ACCESS)) {
+            return true;
+        }
+
+        if (lhs.isInstance(JmmKind.FIELD_ACCESS)) {
+            var fieldName = lhs.get("name");
+            var receiverType = types.getExprType(lhs.getChild(0));
+            return !("length".equals(fieldName) && receiverType.isArray());
+        }
+
+        return false;
     }
 }
