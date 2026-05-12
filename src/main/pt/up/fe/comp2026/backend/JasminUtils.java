@@ -42,8 +42,12 @@ public class JasminUtils {
 
 
     public String getTypePrefix(Type type) {
-        System.out.println("[TODO] JasminUtils.getTypePrefix(): Assumes it is always int, needs to be expanded");
-        return "i";
+        if (type instanceof BuiltinType) {
+            return "i";
+        } else if (type instanceof ArrayType) {
+            return "a";
+        }
+        throw new RuntimeException("Not implemented for element type '" + type + "'");
     }
 
     public String getTypeDescriptor(Type type) {
@@ -51,9 +55,13 @@ public class JasminUtils {
         if (type instanceof BuiltinType builtinType) {
             return switch (builtinType.getKind()) {
                 case INT32 -> "I";
+                case BOOLEAN -> "Z";
+                case VOID -> "V";
                 default ->
                         throw new RuntimeException("Not implemented for element type '" + builtinType.getKind() + "'");
             };
+        } else if (type instanceof ArrayType arrayType) {
+            return "[" + getTypeDescriptor(arrayType.getElementType());
         }
 
         throw new RuntimeException("Not implemented for element type '" + type + "'");
