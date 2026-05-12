@@ -1,6 +1,8 @@
 package pt.up.fe.comp2026.optimization;
 
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
+import pt.up.fe.comp.jmm.analysis.table.MethodSymbol;
+import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
@@ -15,6 +17,7 @@ import pt.up.fe.comp2026.optimization.RegisterAllocation.InterferenceGraph;
 import pt.up.fe.comp2026.optimization.RegisterAllocation.GraphColoring;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 
@@ -63,7 +66,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 propagator.visit(root, table);
                 modified |= propagator.isModified();
 
-                eliminateBranches(root);
+                modified |= eliminateBranches(root);
 
                 TypeUtils types = new TypeUtils(semanticsResult.getSymbolTable());
                 for (var methodDecl : root.getDescendants(METHOD_DECL)) {
@@ -238,7 +241,8 @@ public class JmmOptimizationImpl implements JmmOptimization {
         return ollirResult;
     }
 
-    private void eliminateBranches(JmmNode root) {
+    private boolean eliminateBranches(JmmNode root) {
+        boolean changed = false;
         var ifStmts = new ArrayList<>(root.getDescendants(IF_ELSE_STMT));
 
         for (var ifStmt : ifStmts) {
@@ -255,8 +259,11 @@ public class JmmOptimizationImpl implements JmmOptimization {
                         ifStmt.replace(new JmmNodeImpl(COMPOUND_STMT));
                     }
                 }
+                changed = true;
             }
         }
+
+        return changed;
     }
 
     private Boolean evaluateStaticCondition(JmmNode node) {
@@ -305,82 +312,353 @@ public class JmmOptimizationImpl implements JmmOptimization {
         return null;
     }
 
-    private boolean eliminateDeadCode(JmmNode methodDecl, pt.up.fe.comp.jmm.analysis.table.SymbolTable table, TypeUtils types) {
+    private boolean eliminateDeadCode(JmmNode methodDecl, SymbolTable table, TypeUtils types) {
         boolean changed = false;
         var methodSig = types.getMethodDeclSignature(methodDecl);
         var methodOpt = table.getMethod(methodSig);
         if (methodOpt.isEmpty()) return false;
         var methodSymbol = methodOpt.get();
 
-        // find all variables that are read within this method
-        Set<String> readVars = new HashSet<>();
-        for (var ref : methodDecl.getDescendants(VAR_REF_EXPR)) {
-            JmmNode parent = ref.getParent();
-            if (parent.isInstance(ASSIGN_STMT) && parent.getChild(0) == ref) {
-                continue;
-            }
-            readVars.add(ref.get("name"));
+        var context = new DeadCodeContext(methodSymbol, findExternallyBackedArrayLocals(methodDecl, methodSymbol, table));
+
+        changed |= eliminateUnreachableStatements(methodDecl);
+        changed |= eliminateDeadAssignmentsInSequence(methodDecl, Collections.emptySet(), context).changed();
+
+        return changed;
+    }
+
+    private DceResult eliminateDeadAssignmentsInSequence(JmmNode container, Set<String> liveAfter, DeadCodeContext context) {
+        boolean changed = false;
+        Set<String> live = new HashSet<>(liveAfter);
+        List<JmmNode> statements = new ArrayList<>(container.getChildren(STMT));
+
+        for (int i = statements.size() - 1; i >= 0; i--) {
+            var result = eliminateDeadAssignments(statements.get(i), live, context);
+            live = result.liveBefore();
+            changed |= result.changed();
         }
 
-        // eliminate dead standard assignments
-        for (var assign : methodDecl.getDescendants(ASSIGN_STMT)) {
-            var lhs = assign.getChild(0);
-            if (!lhs.isInstance(VAR_REF_EXPR)) continue;
+        return new DceResult(live, changed);
+    }
 
-            String varName = lhs.get("name");
-
-            // protect class fields
-            boolean isLocal = methodSymbol.getLocalVariable(varName).isPresent();
-            boolean isParam = methodSymbol.getParameter(varName).isPresent();
-            if (!isLocal && !isParam) continue;
-
-            // kill unread var assignments
-            if (!readVars.contains(varName)) {
-                JmmNode rhs = assign.getChild(1);
-
-                // preserve side effects by converting to an ExprStmt
-                if (hasSideEffects(rhs)) {
-                    var exprStmt = new JmmNodeImpl(EXPR_STMT);
-                    exprStmt.add(rhs);
-                    assign.replace(exprStmt);
-                } else {
-                    // safe to completely delete
-                    assign.replace(new JmmNodeImpl(COMPOUND_STMT));
-                }
-                changed = true;
-            }
+    private DceResult eliminateDeadAssignments(JmmNode stmt, Set<String> liveAfter, DeadCodeContext context) {
+        if (stmt.isInstance(COMPOUND_STMT)) {
+            return eliminateDeadAssignmentsInSequence(stmt, liveAfter, context);
         }
 
-        // eliminate dead array assignments
-        for (var arrayAssign : methodDecl.getDescendants(ARRAY_ASSIGN_STMT)) {
-            String varName = arrayAssign.get("var");
-            boolean isLocal = methodSymbol.getLocalVariable(varName).isPresent();
+        if (stmt.isInstance(RETURN_STMT)) {
+            return new DceResult(readLocalVariables(stmt, context.method()), false);
+        }
 
-            // no elimination of array mutations on parameters or fields
-            if (!isLocal) continue;
+        if (stmt.isInstance(ASSIGN_STMT)) {
+            return eliminateAssignStmt(stmt, liveAfter, context);
+        }
 
-            // If the local array is never read from anywhere, mutations to it are dead
-            if (!readVars.contains(varName)) {
-                JmmNode idx = arrayAssign.getChild(0);
-                JmmNode val = arrayAssign.getChild(1);
+        if (stmt.isInstance(ARRAY_ASSIGN_STMT)) {
+            return eliminateArrayAssignStmt(stmt, liveAfter, context);
+        }
 
-                // Ensure the index or value computations don't have side effects before deleting
-                if (!hasSideEffects(idx) && !hasSideEffects(val)) {
-                    arrayAssign.replace(new JmmNodeImpl(COMPOUND_STMT));
+        if (stmt.isInstance(EXPR_STMT)) {
+            var expr = stmt.getChild(0);
+            if (!hasSideEffects(expr)) {
+                stmt.replace(new JmmNodeImpl(COMPOUND_STMT));
+                return new DceResult(new HashSet<>(liveAfter), true);
+            }
+
+            var liveBefore = new HashSet<>(liveAfter);
+            liveBefore.addAll(readLocalVariables(expr, context.method()));
+            return new DceResult(liveBefore, false);
+        }
+
+        if (stmt.isInstance(IF_ELSE_STMT)) {
+            var thenResult = eliminateDeadAssignments(stmt.getChild(1), liveAfter, context);
+            var elseResult = stmt.getNumChildren() > 2
+                    ? eliminateDeadAssignments(stmt.getChild(2), liveAfter, context)
+                    : new DceResult(new HashSet<>(liveAfter), false);
+
+            var liveBefore = new HashSet<>(thenResult.liveBefore());
+            liveBefore.addAll(elseResult.liveBefore());
+            liveBefore.addAll(readLocalVariables(stmt.getChild(0), context.method()));
+
+            return new DceResult(liveBefore, thenResult.changed() || elseResult.changed());
+        }
+
+        if (stmt.isInstance(WHILE_STMT)) {
+            var liveBefore = new HashSet<>(liveAfter);
+            liveBefore.addAll(readLocalVariables(stmt.getChild(0), context.method()));
+
+            var bodyLiveAfter = new HashSet<>(liveBefore);
+            bodyLiveAfter.addAll(readLocalVariables(stmt.getChild(1), context.method()));
+
+            var bodyResult = eliminateDeadAssignments(stmt.getChild(1), bodyLiveAfter, context);
+            liveBefore.addAll(bodyResult.liveBefore());
+
+            return new DceResult(liveBefore, bodyResult.changed());
+        }
+
+        var liveBefore = new HashSet<>(liveAfter);
+        liveBefore.addAll(readLocalVariables(stmt, context.method()));
+        return new DceResult(liveBefore, false);
+    }
+
+    private DceResult eliminateAssignStmt(JmmNode assign, Set<String> liveAfter, DeadCodeContext context) {
+        var lhs = assign.getChild(0);
+        var rhs = assign.getChild(1);
+
+        if (!lhs.isInstance(VAR_REF_EXPR)) {
+            var liveBefore = new HashSet<>(liveAfter);
+            liveBefore.addAll(readLocalVariables(lhs, context.method()));
+            liveBefore.addAll(readLocalVariables(rhs, context.method()));
+            return new DceResult(liveBefore, false);
+        }
+
+        String varName = lhs.get("name");
+        if (!isLocalOrParameter(varName, context.method())) {
+            var liveBefore = new HashSet<>(liveAfter);
+            liveBefore.addAll(readLocalVariables(rhs, context.method()));
+            return new DceResult(liveBefore, false);
+        }
+
+        if (!liveAfter.contains(varName)) {
+            return eliminateDeadStmtKeepingSideEffects(assign, liveAfter, context.method(), rhs);
+        }
+
+        var liveBefore = new HashSet<>(liveAfter);
+        liveBefore.remove(varName);
+        liveBefore.addAll(readLocalVariables(rhs, context.method()));
+        return new DceResult(liveBefore, false);
+    }
+
+    private DceResult eliminateArrayAssignStmt(JmmNode arrayAssign, Set<String> liveAfter, DeadCodeContext context) {
+        String varName = arrayAssign.get("var");
+        boolean mutatesExternalArray = !isLocalVariable(varName, context.method())
+                || context.externallyBackedArrayLocals().contains(varName);
+
+        if (mutatesExternalArray || liveAfter.contains(varName)) {
+            var liveBefore = new HashSet<>(liveAfter);
+            if (isLocalOrParameter(varName, context.method())) {
+                liveBefore.add(varName);
+            }
+            liveBefore.addAll(readLocalVariables(arrayAssign.getChild(0), context.method()));
+            liveBefore.addAll(readLocalVariables(arrayAssign.getChild(1), context.method()));
+            return new DceResult(liveBefore, false);
+        }
+
+        return eliminateDeadStmtKeepingSideEffects(
+                arrayAssign,
+                liveAfter,
+                context.method(),
+                arrayAssign.getChild(0),
+                arrayAssign.getChild(1)
+        );
+    }
+
+    private DceResult eliminateDeadStmtKeepingSideEffects(JmmNode stmt, Set<String> liveAfter, MethodSymbol method, JmmNode... expressions) {
+        var liveBefore = new HashSet<>(liveAfter);
+        var sideEffectStmts = new ArrayList<JmmNode>();
+
+        for (var expression : expressions) {
+            if (!hasSideEffects(expression)) continue;
+
+            var exprStmt = new JmmNodeImpl(EXPR_STMT);
+            exprStmt.add(expression);
+            sideEffectStmts.add(exprStmt);
+            liveBefore.addAll(readLocalVariables(expression, method));
+        }
+
+        if (sideEffectStmts.isEmpty()) {
+            stmt.replace(new JmmNodeImpl(COMPOUND_STMT));
+        } else if (sideEffectStmts.size() == 1) {
+            stmt.replace(sideEffectStmts.getFirst());
+        } else {
+            var compound = new JmmNodeImpl(COMPOUND_STMT);
+            sideEffectStmts.forEach(compound::add);
+            stmt.replace(compound);
+        }
+
+        return new DceResult(liveBefore, true);
+    }
+
+    private boolean eliminateUnreachableStatements(JmmNode container) {
+        boolean changed = false;
+        boolean unreachable = false;
+        List<JmmNode> statements = new ArrayList<>(container.getChildren(STMT));
+
+        for (var statement : statements) {
+            if (unreachable) {
+                if (!isEmptyCompound(statement)) {
+                    statement.replace(new JmmNodeImpl(COMPOUND_STMT));
                     changed = true;
                 }
+                continue;
+            }
+
+            changed |= eliminateUnreachableInside(statement);
+            if (statementAlwaysReturns(statement)) {
+                unreachable = true;
             }
         }
 
         return changed;
     }
 
-    private boolean hasSideEffects(JmmNode node) {
-        if (node.isInstance(METHOD_CALL) ||
-            node.isInstance(IMPLICIT_CALL) ||
-            node.isInstance(NEW_OBJECT)) {
+    private boolean isEmptyCompound(JmmNode statement) {
+        return statement.isInstance(COMPOUND_STMT) && statement.getNumChildren() == 0;
+    }
+
+    private boolean eliminateUnreachableInside(JmmNode statement) {
+        if (statement.isInstance(COMPOUND_STMT)) {
+            return eliminateUnreachableStatements(statement);
+        }
+
+        if (statement.isInstance(IF_ELSE_STMT)) {
+            boolean changed = eliminateUnreachableInside(statement.getChild(1));
+            if (statement.getNumChildren() > 2) {
+                changed |= eliminateUnreachableInside(statement.getChild(2));
+            }
+            return changed;
+        }
+
+        if (statement.isInstance(WHILE_STMT)) {
+            Boolean condition = evaluateStaticCondition(statement.getChild(0));
+            if (Boolean.FALSE.equals(condition)) {
+                statement.replace(new JmmNodeImpl(COMPOUND_STMT));
+                return true;
+            }
+
+            return eliminateUnreachableInside(statement.getChild(1));
+        }
+
+        return false;
+    }
+
+    private boolean statementAlwaysReturns(JmmNode statement) {
+        if (statement.isInstance(RETURN_STMT)) {
             return true;
         }
+
+        if (statement.isInstance(COMPOUND_STMT)) {
+            return sequenceAlwaysReturns(statement);
+        }
+
+        if (statement.isInstance(IF_ELSE_STMT)) {
+            return statement.getNumChildren() > 2
+                    && statementAlwaysReturns(statement.getChild(1))
+                    && statementAlwaysReturns(statement.getChild(2));
+        }
+
+        if (statement.isInstance(WHILE_STMT)) {
+            return Boolean.TRUE.equals(evaluateStaticCondition(statement.getChild(0)))
+                    && statementAlwaysReturns(statement.getChild(1));
+        }
+
+        return false;
+    }
+
+    private boolean sequenceAlwaysReturns(JmmNode container) {
+        for (var statement : container.getChildren(STMT)) {
+            if (statementAlwaysReturns(statement)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Set<String> findExternallyBackedArrayLocals(JmmNode methodDecl, MethodSymbol method, SymbolTable table) {
+        var externalAliases = new HashSet<String>();
+        boolean changed;
+
+        do {
+            changed = false;
+
+            for (var assign : methodDecl.getDescendants(ASSIGN_STMT)) {
+                var lhs = assign.getChild(0);
+                if (!lhs.isInstance(VAR_REF_EXPR)) continue;
+
+                String varName = lhs.get("name");
+                var local = method.getLocalVariable(varName);
+                if (local.isEmpty() || !local.get().type().isArray()) continue;
+
+                if (mayReferToExternalArray(assign.getChild(1), method, table, externalAliases)) {
+                    changed |= externalAliases.add(varName);
+                }
+            }
+        } while (changed);
+
+        return externalAliases;
+    }
+
+    private boolean mayReferToExternalArray(JmmNode expr, MethodSymbol method, SymbolTable table, Set<String> externalAliases) {
+        if (expr.isInstance(PARENTHESES_EXPR)) {
+            return mayReferToExternalArray(expr.getChild(0), method, table, externalAliases);
+        }
+
+        if (expr.isInstance(NEW_ARRAY) || expr.isInstance(NEW_ARRAY_BY_EXTENSION) || expr.isInstance(ARRAY)) {
+            return false;
+        }
+
+        if (expr.isInstance(VAR_REF_EXPR)) {
+            String varName = expr.get("name");
+            boolean isLocal = method.getLocalVariable(varName).isPresent();
+            return method.getParameter(varName).isPresent()
+                    || (!isLocal && table.getField(varName).isPresent())
+                    || externalAliases.contains(varName);
+        }
+
+        if (expr.isInstance(FIELD_ACCESS) || expr.isInstance(METHOD_CALL) || expr.isInstance(IMPLICIT_CALL)) {
+            return true;
+        }
+
+        for (var child : expr.getChildren()) {
+            if (mayReferToExternalArray(child, method, table, externalAliases)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Set<String> readLocalVariables(JmmNode node, MethodSymbol method) {
+        var reads = new HashSet<String>();
+        collectLocalReads(node, method, reads);
+        return reads;
+    }
+
+    private void collectLocalReads(JmmNode node, MethodSymbol method, Set<String> reads) {
+        if (node.isInstance(VAR_REF_EXPR)) {
+            String varName = node.get("name");
+            if (isLocalOrParameter(varName, method)) {
+                reads.add(varName);
+            }
+            return;
+        }
+
+        for (var child : node.getChildren()) {
+            collectLocalReads(child, method, reads);
+        }
+    }
+
+    private boolean isLocalOrParameter(String varName, MethodSymbol method) {
+        return method.getLocalVariable(varName).isPresent() || method.getParameter(varName).isPresent();
+    }
+
+    private boolean isLocalVariable(String varName, MethodSymbol method) {
+        return method.getLocalVariable(varName).isPresent();
+    }
+
+    private boolean hasSideEffects(JmmNode node) {
+        if (node.isInstance(METHOD_CALL) || node.isInstance(IMPLICIT_CALL) || node.isInstance(NEW_OBJECT)) {
+            return true;
+        }
+
+        if (node.isInstance(UNARY_EXPR)) {
+            var op = node.getOptional("op").orElse("");
+            if ("++".equals(op) || "--".equals(op)) {
+                return true;
+            }
+        }
+
         // Recursively check children
         for (JmmNode child : node.getChildren()) {
             if (hasSideEffects(child)) return true;
@@ -388,4 +666,9 @@ public class JmmOptimizationImpl implements JmmOptimization {
         return false;
     }
 
+    private record DeadCodeContext(MethodSymbol method, Set<String> externallyBackedArrayLocals) {
+    }
+
+    private record DceResult(Set<String> liveBefore, boolean changed) {
+    }
 }
