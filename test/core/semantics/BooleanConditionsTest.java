@@ -138,6 +138,73 @@ public class BooleanConditionsTest extends JmmTestEnv {
     }
 
     @Test
+    public void negationWithIntConditionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        if (!1) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }""");
+
+        assertTrue("Expected semantic errors for applying ! to int", !semantics.getReports(ReportType.ERROR).isEmpty());
+    }
+
+    @Test
+    public void negationWithArrayConditionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        if (!new int[3]) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }""");
+
+        assertTrue("Expected semantic errors for applying ! to array", !semantics.getReports(ReportType.ERROR).isEmpty());
+    }
+
+    @Test
+    public void negationWithThisConditionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        if (!this) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }""");
+
+        assertTrue("Expected semantic errors for applying ! to this", !semantics.getReports(ReportType.ERROR).isEmpty());
+    }
+
+    @Test
+    public void negationWithIntMethodCallConditionShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    int helper() {
+                        return 1;
+                    }
+                    public int m() {
+                        if (!helper()) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }""");
+
+        assertTrue("Expected semantic errors for applying ! to int-returning call", !semantics.getReports(ReportType.ERROR).isEmpty());
+    }
+
+    @Test
     public void multipleInvalidConditionsShouldReportMultipleErrors() {
         var semantics = analyzeSnippet("""
                 package x;
