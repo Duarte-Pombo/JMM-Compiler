@@ -67,6 +67,20 @@ public class JasminUtils {
         throw new RuntimeException("Not implemented for element type '" + type + "'");
     }
 
+    public String getClassPath(String className) {
+        if (className == null || className.isBlank()) {
+            className = "Object";
+        }
+
+        var resolvedClassName = fullClassnames.get(className);
+        if (resolvedClassName == null) {
+            resolvedClassName = importer.loadImplicit(className)
+                    .map(Class::getName)
+                    .orElse(className);
+        }
+
+        return resolvedClassName.replace('.', '/');
+    }
 
 
 

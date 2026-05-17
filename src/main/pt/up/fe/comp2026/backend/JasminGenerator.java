@@ -97,18 +97,18 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // generate class name
-        var nameWithPackage = ollirResult.getOllirClass().getClassFullyQualifiedName().replace('.', '/');
-        code.append(".class ").append(nameWithPackage).append(NL).append(NL);
+        var nameWithPackage = classUnit.getClassFullyQualifiedName().replace('.', '/');
+        code.append(".class public ").append(nameWithPackage).append(NL);
 
-        // TODO: When you support 'extends', this must be updated
-        var fullSuperClass =  "java/lang/Object";
-
-        code.append(".super ").append(fullSuperClass).append(NL);
+        var fullSuperClass = types.getClassPath(classUnit.getSuperClass());
+        code.append(".super ").append(fullSuperClass).append(NL).append(NL);
 
         // generate a single constructor method
         var defaultConstructor = """
                 ;default constructor
                 .method public <init>()V
+                    .limit stack 1
+                    .limit locals 1
                     aload_0
                     invokespecial %s/<init>()V
                     return
