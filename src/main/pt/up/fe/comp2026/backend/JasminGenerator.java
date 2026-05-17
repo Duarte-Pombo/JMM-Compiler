@@ -63,6 +63,8 @@ public class JasminGenerator {
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(NewInstruction.class, this::generateNew);
+        generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
     }
 
 
@@ -142,8 +144,7 @@ public class JasminGenerator {
 
         var code = new StringBuilder();
 
-        // TODO: Modifier is hard-coded
-        var modifier = types.getModifier(AccessModifier.PUBLIC);
+        var modifier = types.getModifier(method.getMethodAccessModifier());
 
 
         var staticMod = method.isStaticMethod() ? "static " : "";
@@ -226,6 +227,29 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName());
 
         return types.getLoad(reg) + NL;
+    }
+
+    private String generateNew(NewInstruction newInst) {
+        var caller = (Operand) newInst.getCaller();
+
+        return "new " + types.getClassPath(caller.getName()) + NL;
+    }
+
+    private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
+        var code = new StringBuilder();
+
+        var caller = (Operand) invokeSpecial.getCaller();
+        var reg = currentMethod.getVarTable().get(caller.getName());
+        var owner = invokeSpecial.getSuperClass()
+                .orElseGet(() -> types.getClassName(caller.getType()));
+
+        code.append(types.getLoad(reg)).append(NL);
+        code.append("invokespecial ")
+                .append(types.getClassPath(owner))
+                .append("/<init>()V")
+                .append(NL);
+
+        return code.toString();
     }
 
 
