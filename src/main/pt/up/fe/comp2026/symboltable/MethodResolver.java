@@ -19,7 +19,12 @@ public class MethodResolver {
     }
 
     public Optional<JmmType> resolveMethodType(String className, String methodName, List<JmmType> argTypes) {
-        return resolveMethodTypeInHierarchy(className, methodName, argTypes, new HashSet<>());
+        return resolveMethodType(className, methodName, argTypes, false);
+    }
+
+    public Optional<JmmType> resolveMethodType(String className, String methodName, List<JmmType> argTypes,
+                                               boolean requireStatic) {
+        return resolveMethodTypeInHierarchy(className, methodName, argTypes, requireStatic, new HashSet<>());
     }
 
     public Optional<SymbolTable> getClassSymbolTable(String className) {
@@ -49,7 +54,7 @@ public class MethodResolver {
         return isSameClassOrSubclass(sourceClass.fullyQualifiedName(), targetClass.fullyQualifiedName());
     }
 
-    private Optional<JmmType> resolveMethodTypeInHierarchy(String className, String methodName, List<JmmType> argTypes,
+    private Optional<JmmType> resolveMethodTypeInHierarchy(String className, String methodName, List<JmmType> argTypes, boolean requireStatic,
                                                            Set<String> visitedClasses) {
         if (!visitedClasses.add(className)) {
             return Optional.empty();
@@ -60,7 +65,7 @@ public class MethodResolver {
             return Optional.empty();
         }
 
-        var methodType = resolveMethod(classTable.get(), methodName, argTypes)
+        var methodType = resolveMethod(classTable.get(), methodName, argTypes, requireStatic)
                 .map(MethodSymbol::returnType);
 
         if (methodType.isPresent()) {
@@ -72,18 +77,21 @@ public class MethodResolver {
             return Optional.empty();
         }
 
-        return resolveMethodTypeInHierarchy(superClassName, methodName, argTypes, visitedClasses);
+        return resolveMethodTypeInHierarchy(superClassName, methodName, argTypes, requireStatic, visitedClasses);
     }
 
-    private Optional<MethodSymbol> resolveMethod(SymbolTable symbolTable, String methodName, List<JmmType> argTypes) {
+    private Optional<MethodSymbol> resolveMethod(SymbolTable symbolTable, String methodName, List<JmmType> argTypes,
+                                                 boolean requireStatic) {
         var signature = Signature.of(methodName, argTypes);
-        var exactMatch = symbolTable.getMethod(signature);
+        var exactMatch = symbolTable.getMethod(signature)
+                .filter(method -> !requireStatic || method.isStatic());
         if (exactMatch.isPresent()) {
             return exactMatch;
         }
 
         return symbolTable.getMethods(methodName).stream()
                 .filter(method -> method.parameters().size() == argTypes.size())
+                .filter(method -> !requireStatic || method.isStatic())
                 .filter(method -> parametersMatch(method, argTypes))
                 .findFirst();
     }

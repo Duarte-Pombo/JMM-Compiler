@@ -24,7 +24,6 @@ public class CurrentGrammarTest extends JmmTestEnv {
             package a.b.c;
             import java.util.Scanner;
             import io.Printer;
-            import singleWordImport;
             class Child extends Parent {
             }""";
         parseSnippet(code);

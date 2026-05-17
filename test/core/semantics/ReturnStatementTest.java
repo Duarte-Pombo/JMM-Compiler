@@ -50,6 +50,67 @@ public class ReturnStatementTest extends JmmTestEnv {
         assertEquals("Expected 1 error", 1, semantics.getReports(ReportType.ERROR).size());
     }
 
+    @Test
+    public void ownClassReturnWithOwnClassParameterShouldRejectWrongReturnExpr() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    A bar(A value) {
+                        return 1;
+                    }
+                }""");
+
+        assertTrue("Expected return type mismatch error", semantics.getReports(ReportType.ERROR).stream()
+                .anyMatch(report -> report.getMessage().contains("Return type mismatch")));
+    }
+
+    @Test
+    public void ownClassReturnThisAndAliasShouldBehaveSame() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    A returnThis() {
+                        return this;
+                    }
+
+                    A returnAlias() {
+                        A alias;
+                        alias = this;
+                        return alias;
+                    }
+                }""");
+
+        assertEquals("Expected 0 errors", 0, semantics.getReports(ReportType.ERROR).size());
+    }
+
+    @Test
+    public void ownClassReturnShouldAcceptParenthesizedThis() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    A foo() {
+                        return (this);
+                    }
+                }""");
+
+        assertEquals("Expected 0 errors", 0, semantics.getReports(ReportType.ERROR).size());
+    }
+
+    @Test
+    public void ownClassArrayReturnShouldRejectThis() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    A[] foo() {
+                        return this;
+                    }
+                }""");
+
+        var errors = semantics.getReports(ReportType.ERROR);
+        assertTrue("Expected 'this' type incompatibility error, got: " + errors, errors.stream()
+                .anyMatch(report -> report.getMessage().contains("'this' is not compatible with type 'x.A[]'")));
+    }
+
     private pt.up.fe.comp.jmm.analysis.JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();

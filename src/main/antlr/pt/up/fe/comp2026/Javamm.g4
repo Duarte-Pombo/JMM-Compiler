@@ -64,7 +64,7 @@ program
     ;
 
 importDecl
-    : IMPORT path += ID (DOT path += ID)* SEMI #ImportDeclaration
+    : IMPORT path += ID (DOT path += ID)+ SEMI #ImportDeclaration
     ;
 
 //package is mandatory

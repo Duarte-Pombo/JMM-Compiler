@@ -9,6 +9,7 @@ import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmClassType;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
 import pt.up.fe.comp2026.symboltable.MethodResolver;
 import pt.up.fe.comp2026.symboltable.JmmSymbolTable;
@@ -198,9 +199,10 @@ public class TypeUtils {
         var methodName = methodCallExpr.get("name");
         var recvType = getExprType(methodCallExpr.getChild(0));
         var recvClass = recvType.asClass().fullyQualifiedName();
+        var requireStatic = recvType.asClass().staticRef();
         var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
 
-        return methodResolver.resolveMethodType(recvClass, methodName, argTypes)
+        return methodResolver.resolveMethodType(recvClass, methodName, argTypes, requireStatic)
                 .orElseThrow(() -> new RuntimeException("Method '" + Signature.of(methodName, argTypes) + "' not found in '" + recvClass + "'"));
     }
 
@@ -209,8 +211,11 @@ public class TypeUtils {
 
         var methodName = implicitCallExpr.get("name");
         var argTypes = implicitCallExpr.getChildren().stream().map(this::getExprType).toList();
+        var requireStatic = implicitCallExpr.getAncestor(METHOD_DECL)
+                .map(method -> method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false))
+                .orElse(false);
 
-        return methodResolver.resolveMethodType(table.getFullyQualifiedName(), methodName, argTypes)
+        return methodResolver.resolveMethodType(table.getFullyQualifiedName(), methodName, argTypes, requireStatic)
                 .orElseThrow(() -> new RuntimeException("Method not found: " + Signature.of(methodName, argTypes)));
     }
 
