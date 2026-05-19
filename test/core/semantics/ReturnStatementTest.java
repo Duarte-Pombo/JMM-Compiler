@@ -111,6 +111,20 @@ public class ReturnStatementTest extends JmmTestEnv {
                 .anyMatch(report -> report.getMessage().contains("'this' is not compatible with type 'x.A[]'")));
     }
 
+    @Test
+    public void subclassReturnThisShouldAcceptSuperReturnType() {
+        var semantics = analyzeSnippet("""
+                package x;
+                import examples.inheritance.A;
+                class Sub extends A {
+                    A make() {
+                        return this;
+                    }
+                }""");
+
+        assertEquals("Expected 0 errors", 0, semantics.getReports(ReportType.ERROR).size());
+    }
+
     private pt.up.fe.comp.jmm.analysis.JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
