@@ -42,9 +42,15 @@ public class JasminUtils {
 
 
     public String getTypePrefix(Type type) {
-        if (type instanceof BuiltinType) {
-            return "i";
-        } else if (type instanceof ArrayType) {
+        if (type instanceof BuiltinType builtinType) {
+            return switch (builtinType.getKind()) {
+                case INT32, BOOLEAN -> "i";
+                case VOID -> "";
+                case STRING -> "a";
+            };
+        }
+
+        if (type instanceof ArrayType || type instanceof ClassType) {
             return "a";
         }
         throw new RuntimeException("Not implemented for element type '" + type + "'");
@@ -60,17 +66,50 @@ public class JasminUtils {
                 default ->
                         throw new RuntimeException("Not implemented for element type '" + builtinType.getKind() + "'");
             };
-        } else if (type instanceof ArrayType arrayType) {
-            return "[" + getTypeDescriptor(arrayType.getElementType());
+        }
+
+        if (type instanceof ArrayType arrayType) {
+            var dimensions = Math.max(1, arrayType.getNumDimensions());
+            return "[".repeat(dimensions) + getTypeDescriptor(arrayType.getElementType());
+        }
+
+        if (type instanceof ClassType classType) {
+            return "L" + getClassPath(classType.getName()) + ";";
         }
 
         throw new RuntimeException("Not implemented for element type '" + type + "'");
     }
 
+    public String getClassName(Type type) {
+        if (type instanceof ClassType classType) {
+            return classType.getName();
+        }
+
+        throw new RuntimeException("Expected class type, got '" + type + "'");
+    }
+
+    public String getClassPath(String className) {
+        if (className == null || className.isBlank()) {
+            className = "Object";
+        }
+
+        var resolvedClassName = fullClassnames.get(className);
+        if (resolvedClassName == null) {
+            resolvedClassName = importer.loadImplicit(className)
+                    .map(Class::getName)
+                    .orElse(className);
+        }
+
+        return resolvedClassName.replace('.', '/');
+    }
 
 
 
     public String getModifier(AccessModifier accessModifier) {
+        if (accessModifier == AccessModifier.DEFAULT) {
+            return "";
+        }
+
         return accessModifier.name().toLowerCase() + " ";
     }
 

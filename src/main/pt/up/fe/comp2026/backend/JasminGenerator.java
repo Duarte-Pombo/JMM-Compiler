@@ -39,6 +39,9 @@ public class JasminGenerator {
 
     boolean isInsideAssignment;
 
+    private int currentStack;
+    private int maxStack;
+
     private final JasminUtils types;
     private OptUtils utils;
     private final FunctionClassMap<TreeNode, String> generators;
@@ -50,6 +53,8 @@ public class JasminGenerator {
         code = null;
         currentMethod = null;
         isInsideAssignment = false;
+        currentStack = 0;
+        maxStack = 0;
 
         types = new JasminUtils(ollirResult);
         // Initialize everytime we start a method
@@ -63,6 +68,8 @@ public class JasminGenerator {
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(NewInstruction.class, this::generateNew);
+        generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
     }
 
 
@@ -97,18 +104,18 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // generate class name
-        var nameWithPackage = ollirResult.getOllirClass().getClassFullyQualifiedName().replace('.', '/');
-        code.append(".class ").append(nameWithPackage).append(NL).append(NL);
+        var nameWithPackage = classUnit.getClassFullyQualifiedName().replace('.', '/');
+        code.append(".class public ").append(nameWithPackage).append(NL);
 
-        // TODO: When you support 'extends', this must be updated
-        var fullSuperClass =  "java/lang/Object";
-
-        code.append(".super ").append(fullSuperClass).append(NL);
+        var fullSuperClass = types.getClassPath(classUnit.getSuperClass());
+        code.append(".super ").append(fullSuperClass).append(NL).append(NL);
 
         // generate a single constructor method
         var defaultConstructor = """
                 ;default constructor
                 .method public <init>()V
+                    .limit stack 1
+                    .limit locals 1
                     aload_0
                     invokespecial %s/<init>()V
                     return
@@ -136,14 +143,15 @@ public class JasminGenerator {
         //System.out.println("STARTING METHOD " + method.getMethodName());
         // set method
         currentMethod = method;
+        currentStack = 0;
+        maxStack = 0;
 
         // Initialize utils, to have fresh labels
         utils = new OptUtils(null);
 
         var code = new StringBuilder();
 
-        // TODO: Modifier is hard-coded
-        var modifier = types.getModifier(AccessModifier.PUBLIC);
+        var modifier = types.getModifier(method.getMethodAccessModifier());
 
 
         var staticMod = method.isStaticMethod() ? "static " : "";
@@ -171,8 +179,8 @@ public class JasminGenerator {
         }
 
         // Add limits
-        code.append(TAB).append(".limit stack 99").append(NL);
-        code.append(TAB).append(".limit locals 99").append(NL);
+        code.append(TAB).append(".limit stack ").append(maxStack).append(NL);
+        code.append(TAB).append(".limit locals ").append(getLimitLocals(method)).append(NL);
 
         code.append(TAB).append(bodyCode);
 
@@ -182,6 +190,22 @@ public class JasminGenerator {
         currentMethod = null;
         //System.out.println("ENDING METHOD " + method.getMethodName());
         return code.toString();
+    }
+
+    private int getLimitLocals(Method method) {
+        return method.getVarTable().values().stream()
+                .mapToInt(Descriptor::getVirtualReg)
+                .filter(reg -> reg >= 0)
+                .max()
+                .stream()
+                .map(maxReg -> maxReg + 1)
+                .findFirst()
+                .orElse(0);
+    }
+
+    private void updateStack(int delta) {
+        currentStack += delta;
+        maxStack = Math.max(maxStack, currentStack);
     }
 
     private String generateAssign(AssignInstruction assign) {
@@ -205,6 +229,7 @@ public class JasminGenerator {
             // get register
             var reg = currentMethod.getVarTable().get(operand.getName());
 
+            updateStack(-1);
             code.append(types.getStore(reg)).append(NL);
 
             return code.toString();
@@ -218,6 +243,7 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
+        updateStack(1);
         return "ldc " + literal.getLiteral() + NL;
     }
 
@@ -225,7 +251,34 @@ public class JasminGenerator {
         // get register
         var reg = currentMethod.getVarTable().get(operand.getName());
 
+        updateStack(1);
         return types.getLoad(reg) + NL;
+    }
+
+    private String generateNew(NewInstruction newInst) {
+        var caller = (Operand) newInst.getCaller();
+
+        updateStack(1);
+        return "new " + types.getClassPath(caller.getName()) + NL;
+    }
+
+    private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
+        var code = new StringBuilder();
+
+        var caller = (Operand) invokeSpecial.getCaller();
+        var reg = currentMethod.getVarTable().get(caller.getName());
+        var owner = invokeSpecial.getSuperClass()
+                .orElseGet(() -> types.getClassName(caller.getType()));
+
+        code.append(types.getLoad(reg)).append(NL);
+        updateStack(1);
+        code.append("invokespecial ")
+                .append(types.getClassPath(owner))
+                .append("/<init>()V")
+                .append(NL);
+        updateStack(-1);
+
+        return code.toString();
     }
 
 
@@ -248,6 +301,7 @@ public class JasminGenerator {
         };
 
         code.append(typePrefix + op).append(NL);
+        updateStack(-1);
 
         return code.toString();
     }
@@ -263,6 +317,7 @@ public class JasminGenerator {
         returnInst.getOperand().ifPresent(op -> code.append(apply(op)));
 
         code.append(typePrefix).append("return").append(NL);
+        returnInst.getOperand().ifPresent(op -> updateStack(-1));
 
         return code.toString();
     }
