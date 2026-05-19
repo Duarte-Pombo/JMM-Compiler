@@ -24,7 +24,13 @@ public class MethodResolver {
 
     public Optional<JmmType> resolveMethodType(String className, String methodName, List<JmmType> argTypes,
                                                boolean requireStatic) {
-        return resolveMethodTypeInHierarchy(className, methodName, argTypes, requireStatic, new HashSet<>());
+        return resolveMethodSymbol(className, methodName, argTypes, requireStatic)
+                .map(MethodSymbol::returnType);
+    }
+
+    public Optional<MethodSymbol> resolveMethodSymbol(String className, String methodName, List<JmmType> argTypes,
+                                                      boolean requireStatic) {
+        return resolveMethodInHierarchy(className, methodName, argTypes, requireStatic, new HashSet<>());
     }
 
     public Optional<SymbolTable> getClassSymbolTable(String className) {
@@ -54,8 +60,8 @@ public class MethodResolver {
         return isSameClassOrSubclass(sourceClass.fullyQualifiedName(), targetClass.fullyQualifiedName());
     }
 
-    private Optional<JmmType> resolveMethodTypeInHierarchy(String className, String methodName, List<JmmType> argTypes, boolean requireStatic,
-                                                           Set<String> visitedClasses) {
+    private Optional<MethodSymbol> resolveMethodInHierarchy(String className, String methodName, List<JmmType> argTypes, boolean requireStatic,
+                                                            Set<String> visitedClasses) {
         if (!visitedClasses.add(className)) {
             return Optional.empty();
         }
@@ -65,11 +71,10 @@ public class MethodResolver {
             return Optional.empty();
         }
 
-        var methodType = resolveMethod(classTable.get(), methodName, argTypes, requireStatic)
-                .map(MethodSymbol::returnType);
+        var method = resolveMethod(classTable.get(), methodName, argTypes, requireStatic);
 
-        if (methodType.isPresent()) {
-            return methodType;
+        if (method.isPresent()) {
+            return method;
         }
 
         var superClassName = classTable.get().getSuperFullyQualifiedName();
@@ -77,7 +82,7 @@ public class MethodResolver {
             return Optional.empty();
         }
 
-        return resolveMethodTypeInHierarchy(superClassName, methodName, argTypes, requireStatic, visitedClasses);
+        return resolveMethodInHierarchy(superClassName, methodName, argTypes, requireStatic, visitedClasses);
     }
 
     private Optional<MethodSymbol> resolveMethod(SymbolTable symbolTable, String methodName, List<JmmType> argTypes,

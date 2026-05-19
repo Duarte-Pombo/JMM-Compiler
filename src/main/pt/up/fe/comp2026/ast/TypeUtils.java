@@ -206,6 +206,19 @@ public class TypeUtils {
                 .orElseThrow(() -> new RuntimeException("Method '" + Signature.of(methodName, argTypes) + "' not found in '" + recvClass + "'"));
     }
 
+    public Optional<List<JmmType>> getMethodCallParameterTypes(JmmNode methodCallExpr) {
+        METHOD_CALL.checkOrThrow(methodCallExpr);
+
+        var methodName = methodCallExpr.get("name");
+        var recvType = getExprType(methodCallExpr.getChild(0));
+        var recvClass = recvType.asClass().fullyQualifiedName();
+        var requireStatic = recvType.asClass().staticRef();
+        var argTypes = methodCallExpr.getChildren().stream().skip(1).map(this::getExprType).toList();
+
+        return methodResolver.resolveMethodSymbol(recvClass, methodName, argTypes, requireStatic)
+                .map(method -> method.parameters().stream().map(Symbol::type).toList());
+    }
+
     private JmmType getImplicitCallType(JmmNode implicitCallExpr) {
         IMPLICIT_CALL.checkOrThrow(implicitCallExpr);
 
@@ -217,6 +230,19 @@ public class TypeUtils {
 
         return methodResolver.resolveMethodType(table.getFullyQualifiedName(), methodName, argTypes, requireStatic)
                 .orElseThrow(() -> new RuntimeException("Method not found: " + Signature.of(methodName, argTypes)));
+    }
+
+    public Optional<List<JmmType>> getImplicitCallParameterTypes(JmmNode implicitCallExpr) {
+        IMPLICIT_CALL.checkOrThrow(implicitCallExpr);
+
+        var methodName = implicitCallExpr.get("name");
+        var argTypes = implicitCallExpr.getChildren().stream().map(this::getExprType).toList();
+        var requireStatic = implicitCallExpr.getAncestor(METHOD_DECL)
+                .map(method -> method.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false))
+                .orElse(false);
+
+        return methodResolver.resolveMethodSymbol(table.getFullyQualifiedName(), methodName, argTypes, requireStatic)
+                .map(method -> method.parameters().stream().map(Symbol::type).toList());
     }
 
     private JmmType getFieldAccessType(JmmNode expr) {

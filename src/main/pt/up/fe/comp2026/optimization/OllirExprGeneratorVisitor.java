@@ -7,7 +7,7 @@ import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.ast.TypeUtils;
 
-import java.util.Objects;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static pt.up.fe.comp2026.jmm.ast.JmmKind.*;
@@ -192,7 +192,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     private OllirExprResult visitMethodCall(JmmNode node, Void unused) {
         var childNode = node.getChild(0);
         var receiver = visit(childNode);
-        var argResults = node.getChildren().stream().skip(1).map(this::visit).toList();
+        var argNodes = node.getChildren().stream().skip(1).toList();
+        var argResults = argNodes.stream().map(this::visit).toList();
 
         var receiverType = types.getExprType(childNode);
         var returnType = types.getExprType(node);
@@ -211,7 +212,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
             receiverCode = ollirTypes.sanitizeId(types.simpleName(classType.fullyQualifiedName()));
         }
 
-        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+        var paramTypes = types.getMethodCallParameterTypes(node).orElse(List.of());
+        var argsCode = buildArgsCode(argNodes, argResults, paramTypes, computation);
         var callCode = new StringBuilder().append(invokeKind).append("(").append(receiverCode).append(", \"").append(methodName).append("\"");
 
         if (!argsCode.isEmpty()) callCode.append(", ").append(argsCode);
@@ -327,13 +329,15 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     }
 
     private OllirExprResult visitImplicitCall(JmmNode node, Void unused) {
-        var argResults = node.getChildren().stream().map(this::visit).toList();
+        var argNodes = node.getChildren();
+        var argResults = argNodes.stream().map(this::visit).toList();
         var ollirReturnType = ollirTypes.toOllirType(types.getExprType(node));
 
         StringBuilder computation = new StringBuilder();
         argResults.forEach(arg -> computation.append(arg.getComputation()));
 
-        var argsCode = argResults.stream().map(OllirExprResult::getCode).collect(Collectors.joining(", "));
+        var paramTypes = types.getImplicitCallParameterTypes(node).orElse(List.of());
+        var argsCode = buildArgsCode(argNodes, argResults, paramTypes, computation);
         var className = ollirTypes.sanitizeId(table.getClassName());
 
         var callCode = new StringBuilder()
@@ -356,6 +360,50 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
                    .append(callCode).append(END_STMT);
                    
         return new OllirExprResult(code, computation);
+    }
+
+    private String buildArgsCode(List<JmmNode> argNodes, List<OllirExprResult> argResults,
+                                 List<JmmType> paramTypes, StringBuilder computation) {
+        var args = new StringBuilder();
+
+        for (int i = 0; i < argResults.size(); i++) {
+            if (i > 0) {
+                args.append(", ");
+            }
+
+            var targetType = i < paramTypes.size() ? paramTypes.get(i) : null;
+            args.append(adaptArgCode(argNodes.get(i), argResults.get(i), targetType, computation));
+        }
+
+        return args.toString();
+    }
+
+    private String adaptArgCode(JmmNode argNode, OllirExprResult argResult, JmmType targetType,
+                                StringBuilder computation) {
+        if (targetType == null) {
+            return argResult.getCode();
+        }
+
+        var sourceType = types.getExprType(argNode);
+        if (sourceType.equals(targetType) || !types.isAssignable(sourceType, targetType)) {
+            return argResult.getCode();
+        }
+
+        if (!sourceType.isClass() || !targetType.isClass()) {
+            return argResult.getCode();
+        }
+
+        var targetOllirType = ollirTypes.toOllirType(targetType);
+        if (argNode.isInstance(THIS)) {
+            return "this" + targetOllirType;
+        }
+
+        var code = ollirTypes.nextTemp() + targetOllirType;
+        computation.append(code).append(SPACE)
+                .append(ASSIGN).append(targetOllirType).append(SPACE)
+                .append(argResult.getCode()).append(END_STMT);
+
+        return code;
     }
 
     private OllirExprResult visitNewObject(JmmNode node, Void unused) {
