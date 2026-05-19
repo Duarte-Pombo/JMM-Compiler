@@ -70,6 +70,8 @@ public class JasminGenerator {
         generators.put(ReturnInstruction.class, this::generateReturn);
         generators.put(NewInstruction.class, this::generateNew);
         generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
+        generators.put(InvokeVirtualInstruction.class, this::generateInvokeVirtual);
+        generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
     }
 
 
@@ -193,7 +195,7 @@ public class JasminGenerator {
     }
 
     private int getLimitLocals(Method method) {
-        return method.getVarTable().values().stream()
+        var maxRegisterLimit = method.getVarTable().values().stream()
                 .mapToInt(Descriptor::getVirtualReg)
                 .filter(reg -> reg >= 0)
                 .max()
@@ -201,6 +203,10 @@ public class JasminGenerator {
                 .map(maxReg -> maxReg + 1)
                 .findFirst()
                 .orElse(0);
+
+        var parameterLimit = method.getParams().size() + (method.isStaticMethod() ? 0 : 1);
+
+        return Math.max(maxRegisterLimit, parameterLimit);
     }
 
     private void updateStack(int delta) {
@@ -251,6 +257,15 @@ public class JasminGenerator {
         // get register
         var reg = currentMethod.getVarTable().get(operand.getName());
 
+        if (reg == null) {
+            if ("this".equals(operand.getName())) {
+                updateStack(1);
+                return "aload_0" + NL;
+            }
+
+            throw new RuntimeException("Could not find register for operand '" + operand.getName() + "'");
+        }
+
         updateStack(1);
         return types.getLoad(reg) + NL;
     }
@@ -265,20 +280,125 @@ public class JasminGenerator {
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
         var code = new StringBuilder();
 
-        var caller = (Operand) invokeSpecial.getCaller();
-        var reg = currentMethod.getVarTable().get(caller.getName());
+        code.append(apply(invokeSpecial.getCaller()));
+        for (var argument : invokeSpecial.getArguments()) {
+            code.append(apply(argument));
+        }
+
+        var caller = invokeSpecial.getCaller();
         var owner = invokeSpecial.getSuperClass()
                 .orElseGet(() -> types.getClassName(caller.getType()));
 
-        code.append(types.getLoad(reg)).append(NL);
-        updateStack(1);
         code.append("invokespecial ")
                 .append(types.getClassPath(owner))
-                .append("/<init>()V")
+                .append("/")
+                .append(getMethodName(invokeSpecial))
+                .append(getInvocationDescriptor(invokeSpecial))
                 .append(NL);
-        updateStack(-1);
+        updateStack(getInvokeStackDelta(invokeSpecial, true));
+
+        appendPopIfUnused(code, invokeSpecial);
 
         return code.toString();
+    }
+
+    private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtual) {
+        var code = new StringBuilder();
+
+        code.append(apply(invokeVirtual.getCaller()));
+        for (var argument : invokeVirtual.getArguments()) {
+            code.append(apply(argument));
+        }
+
+        code.append("invokevirtual ")
+                .append(types.getClassPath(types.getClassName(invokeVirtual.getCaller().getType())))
+                .append("/")
+                .append(getMethodName(invokeVirtual))
+                .append(getInvocationDescriptor(invokeVirtual))
+                .append(NL);
+        updateStack(getInvokeStackDelta(invokeVirtual, true));
+
+        appendPopIfUnused(code, invokeVirtual);
+
+        return code.toString();
+    }
+
+    private String generateInvokeStatic(InvokeStaticInstruction invokeStatic) {
+        var code = new StringBuilder();
+
+        for (var argument : invokeStatic.getArguments()) {
+            code.append(apply(argument));
+        }
+
+        code.append("invokestatic ")
+                .append(getStaticOwner(invokeStatic.getCaller()))
+                .append("/")
+                .append(getMethodName(invokeStatic))
+                .append(getInvocationDescriptor(invokeStatic))
+                .append(NL);
+        updateStack(getInvokeStackDelta(invokeStatic, false));
+
+        appendPopIfUnused(code, invokeStatic);
+
+        return code.toString();
+    }
+
+    private String getStaticOwner(Element caller) {
+        if (caller instanceof Operand operand) {
+            return types.getClassPath(operand.getName());
+        }
+
+        return types.getClassPath(types.getClassName(caller.getType()));
+    }
+
+    private String getMethodName(CallInstruction call) {
+        var methodName = call.getMethodName();
+
+        if (methodName instanceof LiteralElement literal) {
+            return stripQuotes(literal.getLiteral());
+        }
+
+        if (methodName instanceof Operand operand) {
+            return operand.getName();
+        }
+
+        return stripQuotes(methodName.toString());
+    }
+
+    private String stripQuotes(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+
+        return value;
+    }
+
+    private String getInvocationDescriptor(CallInstruction call) {
+        var params = call.getArguments().stream()
+                .map(argument -> types.getTypeDescriptor(argument.getType()))
+                .collect(Collectors.joining());
+
+        return "(" + params + ")" + types.getTypeDescriptor(call.getReturnType());
+    }
+
+    private int getInvokeStackDelta(CallInstruction call, boolean hasReceiver) {
+        var consumed = call.getArguments().size() + (hasReceiver ? 1 : 0);
+        var produced = returnsValue(call) ? 1 : 0;
+
+        return produced - consumed;
+    }
+
+    private boolean returnsValue(CallInstruction call) {
+        return !BuiltinType.is(call.getReturnType(), BuiltinKind.VOID);
+    }
+
+    private void appendPopIfUnused(StringBuilder code, CallInstruction call) {
+        if (isInsideAssignment || !returnsValue(call)) {
+            return;
+        }
+
+        code.append("pop").append(NL);
+        updateStack(-1);
     }
 
 
