@@ -256,8 +256,32 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
+        String str = literal.getLiteral();
+
+        if (literal.getType() instanceof BuiltinType builtin && builtin.getKind() == BuiltinKind.STRING) {
+            updateStack(1);
+            return "ldc " + str + NL;
+        }
+        int n = Integer.parseInt(str);
+
+        if (n == -1) {
+            updateStack(1);
+            return "iconst_m1" + NL;
+        }
+        if (n >= 0 && n <= 5) {
+            updateStack(1);
+            return "iconst_" + n + NL;
+        }
+        if (n >= -128 && n <= 127) {
+            updateStack(1);
+            return "bipush " + n + NL;
+        }
+        if (n >= -32768 && n <= 32767) {
+            updateStack(1);
+            return "sipush " + n + NL;
+        }
         updateStack(1);
-        return "ldc " + literal.getLiteral() + NL;
+        return "ldc " + n + NL;
     }
 
     private String generateOperand(Operand operand) {
