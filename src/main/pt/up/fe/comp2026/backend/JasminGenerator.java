@@ -3,20 +3,17 @@ package pt.up.fe.comp2026.backend;
 import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
-import org.specs.comp.ollir.type.ArrayType;
 import org.specs.comp.ollir.type.BuiltinKind;
 import org.specs.comp.ollir.type.BuiltinType;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp2026.optimization.OptUtils;
-import pt.up.fe.specs.util.SpecsCheck;
 import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -226,24 +223,70 @@ public class JasminGenerator {
             isInsideAssignment = true;
 
 
-            var code = new StringBuilder();
+            StringBuilder code = new StringBuilder();
 
-            // store value in the stack in destination
-            var lhs = assign.getDest();
+            var lhs = (Operand) assign.getDest();
+            var register = this.currentMethod.getVarTable().get(lhs.getName());
 
-            // generate code for loading what's on the right
+            if (assign.getRhs() instanceof BinaryOpInstruction binaryOp) {
+
+                var opType = binaryOp.getOperation().getOpType();
+
+                if (binaryOp.getLeftOperand() instanceof Operand left &&
+                        binaryOp.getRightOperand() instanceof LiteralElement right &&
+                        left.getName().equals(lhs.getName())) {
+
+                    int c = Integer.parseInt(right.getLiteral());
+                    if (c >= -128 && c <= 127) {
+
+                        if (opType == OperationType.ADD) {
+                            code.append("iinc ")
+                                    .append(register.getVirtualReg())
+                                    .append(" ")
+                                    .append(c)
+                                    .append(NL);
+
+                            return code.toString();
+                        }
+
+                        if (opType == OperationType.SUB) {
+                            code.append("iinc ")
+                                    .append(register.getVirtualReg())
+                                    .append(" ")
+                                    .append(-c)
+                                    .append(NL);
+
+                            return code.toString();
+                        }
+                    }
+                }
+
+                // x = C + x
+                if (binaryOp.getLeftOperand() instanceof LiteralElement left &&
+                        binaryOp.getRightOperand() instanceof Operand right &&
+                        right.getName().equals(lhs.getName())) {
+
+                    int c = Integer.parseInt(left.getLiteral());
+
+                    if (opType == OperationType.ADD &&
+                            c >= -128 && c <= 127) {
+
+                        code.append("iinc ")
+                                .append(register.getVirtualReg())
+                                .append(" ")
+                                .append(c)
+                                .append(NL);
+
+                        return code.toString();
+                    }
+                }
+
+            }
+
             code.append(apply(assign.getRhs()));
 
-
-            // Assume Operand
-            var operand = (Operand) lhs;
-
-
-            // get register
-            var reg = currentMethod.getVarTable().get(operand.getName());
-
             updateStack(-1);
-            code.append(types.getStore(reg)).append(NL);
+            code.append(types.getStore(register)).append(NL);
 
             return code.toString();
         } finally {
