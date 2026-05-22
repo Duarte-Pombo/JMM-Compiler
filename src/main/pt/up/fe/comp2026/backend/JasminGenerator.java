@@ -5,6 +5,7 @@ import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
 import org.specs.comp.ollir.type.BuiltinKind;
 import org.specs.comp.ollir.type.BuiltinType;
+import org.specs.comp.ollir.type.Type;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp2026.optimization.OptUtils;
@@ -13,7 +14,9 @@ import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +46,7 @@ public class JasminGenerator {
     private final JasminUtils types;
     private OptUtils utils;
     private final FunctionClassMap<TreeNode, String> generators;
+    private final Map<String, FieldAlias> fieldAliases;
 
     public JasminGenerator(OllirResult ollirResult) {
         this.ollirResult = ollirResult;
@@ -57,6 +61,7 @@ public class JasminGenerator {
         types = new JasminUtils(ollirResult);
         // Initialize everytime we start a method
         utils = null;
+        fieldAliases = new HashMap<>();
         this.generators = new FunctionClassMap<>();
         generators.put(ClassUnit.class, this::generateClassUnit);
         generators.put(Method.class, this::generateMethod);
@@ -74,6 +79,8 @@ public class JasminGenerator {
         generators.put(GotoInstruction.class, this::generateGoto);
         generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
         generators.put(OpCondInstruction.class, this::generateOpCond);
+        generators.put(Field.class, this::generateField);
+        generators.put(FieldInstruction.class, this::generateFieldInstruction);
     }
 
 
@@ -113,6 +120,14 @@ public class JasminGenerator {
 
         var fullSuperClass = types.getClassPath(classUnit.getSuperClass());
         code.append(".super ").append(fullSuperClass).append(NL).append(NL);
+
+        for (var field : classUnit.getFields()) {
+            code.append(apply(field));
+        }
+
+        if (!classUnit.getFields().isEmpty()) {
+            code.append(NL);
+        }
 
         // generate a single constructor method
         var defaultConstructor = """
@@ -226,6 +241,23 @@ public class JasminGenerator {
             StringBuilder code = new StringBuilder();
 
             var lhs = (Operand) assign.getDest();
+            var alias = fieldAliases.get(lhs.getName());
+            if (alias != null && !(assign.getRhs() instanceof GetFieldInstruction)) {
+                code.append(apply(alias.object));
+                code.append(apply(assign.getRhs()));
+
+                var ownerName = alias.object.getName().equals("this")
+                        ? ollirResult.getOllirClass().getClassFullyQualifiedName()
+                        : types.getClassName(alias.object.getType());
+
+                code.append("putfield ").append(types.getClassPath(ownerName))
+                        .append("/").append(alias.fieldName).append(" ")
+                        .append(types.getTypeDescriptor(alias.fieldType)).append(NL);
+                updateStack(-2);
+                fieldAliases.remove(lhs.getName());
+                return code.toString();
+            }
+
             var register = this.currentMethod.getVarTable().get(lhs.getName());
 
             if (assign.getRhs() instanceof BinaryOpInstruction binaryOp) {
@@ -241,10 +273,8 @@ public class JasminGenerator {
 
                         if (opType == OperationType.ADD) {
                             code.append("iinc ")
-                                    .append(register.getVirtualReg())
-                                    .append(" ")
-                                    .append(c)
-                                    .append(NL);
+                                    .append(register.getVirtualReg()).append(" ")
+                                    .append(c).append(NL);
 
                             return code.toString();
                         }
@@ -252,9 +282,7 @@ public class JasminGenerator {
                         if (opType == OperationType.SUB) {
                             code.append("iinc ")
                                     .append(register.getVirtualReg())
-                                    .append(" ")
-                                    .append(-c)
-                                    .append(NL);
+                                    .append(" ").append(-c).append(NL);
 
                             return code.toString();
                         }
@@ -273,14 +301,16 @@ public class JasminGenerator {
 
                         code.append("iinc ")
                                 .append(register.getVirtualReg())
-                                .append(" ")
-                                .append(c)
-                                .append(NL);
+                                .append(" ").append(c).append(NL);
 
                         return code.toString();
                     }
                 }
 
+            }
+
+            if (assign.getRhs() instanceof GetFieldInstruction getField) {
+                fieldAliases.put(lhs.getName(), new FieldAlias(getField.getObject(), getField.getField(), getField.getFieldType()));
             }
 
             code.append(apply(assign.getRhs()));
@@ -710,5 +740,81 @@ public class JasminGenerator {
         updateStack(-2);
 
         return code.toString();
+    }
+
+    private String generateField(Field field) {
+
+        StringBuilder code = new StringBuilder();
+        var modifier = field.getFieldAccessModifier() == AccessModifier.DEFAULT
+                ? "public "
+                : types.getModifier(field.getFieldAccessModifier());
+        var staticMod = field.isStaticField() ? "static " : "";
+        var finalMod = field.isFinalField() ? "final " : "";
+        var fieldDesc = types.getTypeDescriptor(field.getFieldType());
+        var fieldName = field.getFieldName();
+
+        code.append(".field ").append(modifier).append(staticMod).
+                append(finalMod).append(fieldName).append(" ").append(fieldDesc);
+
+        if (field.isInitialized()) {
+            code.append(" = ").append(field.getInitialValue());
+        }
+
+        code.append(" ").append(NL);
+        return code.toString();
+    }
+
+    private String generateFieldInstruction(FieldInstruction fieldInst) {
+        var code = new StringBuilder();
+
+        var object = fieldInst.getObject();
+        var field = fieldInst.getField();
+
+        Type actualFieldType;
+        if (fieldInst instanceof PutFieldInstruction putField) {
+            actualFieldType = putField.getValue().getType();
+        } else {
+            actualFieldType = fieldInst.getFieldType();
+        }
+        var fieldDesc = types.getTypeDescriptor(actualFieldType);
+
+        var ownerName = object.getName().equals("this")
+                ? ollirResult.getOllirClass().getClassFullyQualifiedName()
+                : types.getClassName(object.getType());
+
+        var ownerPath = types.getClassPath(ownerName);
+        var fieldName = field.getName();
+        if (fieldInst instanceof GetFieldInstruction) {
+            code.append(apply(object));
+            code.append("getfield ").append(ownerPath).append("/").append(fieldName)
+                    .append(" ").append(fieldDesc).append(NL);
+
+            return code.toString();
+        }
+
+        if (fieldInst instanceof PutFieldInstruction putField) {
+            code.append(apply(object));
+            code.append(apply(putField.getValue()));
+            code.append("putfield ")
+                    .append(ownerPath).append("/").append(fieldName)
+                    .append(" ").append(fieldDesc).append(NL);
+
+            updateStack(-2);
+            return code.toString();
+        }
+
+        throw new NotImplementedException(fieldInst.getInstType());
+    }
+
+    private static final class FieldAlias {
+        private final Operand object;
+        private final String fieldName;
+        private final Type fieldType;
+
+        private FieldAlias(Operand object, Operand field, Type fieldType) {
+            this.object = object;
+            this.fieldName = field.getName();
+            this.fieldType = fieldType;
+        }
     }
 }
