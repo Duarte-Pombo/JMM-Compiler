@@ -147,6 +147,90 @@ public class AssignmentsTest extends JmmTestEnv {
         assertTrue("No iinc present",!jasminCode.contains("iinc "));
     }
 
+    @Test
+    public void negativeAdditionShouldUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            public void method() {
+                int a;
+                a = a - 5;
+            }
+        }""");
+        assertTrue("AA",jasminCode.contains("iinc "));
+        assertTrue("",jasminCode.contains("-5"));
+    }
+
+    @Test
+    public void maxIincBoundaryShouldUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            public void method() {
+                int a;
+                a = a + 127;
+            }
+        }""");
+
+        assertTrue("",jasminCode.contains("iinc "));
+    }
+    @Test
+    public void chainedAdditionShouldNotUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            public void method() {
+                int a;
+                a = a + 1 + 2;
+            }
+        }""");
+
+        assertTrue("",!jasminCode.contains("iinc "));
+    }
+
+    @Test
+    public void multiplicationInsideExpressionShouldNotUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            public void method() {
+                int a;
+                a = a + (2 * 3);
+            }
+        }""");
+
+        assertTrue("",!jasminCode.contains("iinc "));
+    }
+    @Test
+    public void fieldAssignmentShouldNotUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            int a;
+
+            public void method() {
+                this.a = this.a + 1;
+            }
+        }""");
+
+        assertTrue("",!jasminCode.contains("iinc "));
+        assertTrue("",jasminCode.contains("putfield"));
+    }
+
+    @Test
+    public void constantMinusVariableShouldNotUseIinc() {
+        var jasminCode = toJasminCode("""
+        package x;
+        class A {
+            public void method() {
+                int a;
+                a = 10 - a;
+            }
+        }""");
+
+        assertTrue("",!jasminCode.contains("iinc "));
+    }
+
     private String toJasminCode(String code) {
         var parserResult = parseSnippet(code);
         assertTrue("Unexpected parser errors", parserResult.getReports(ReportType.ERROR).isEmpty());
