@@ -79,38 +79,50 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String visitAssignStmt(JmmNode node, Void unused) {
         var lhsNode = node.getChild(0);
         var rhsNode = node.getChild(1);
+        var rhs = exprVisitor.visit(rhsNode);
         JmmType lhsType = types.getExprType(lhsNode);
         String typeString = ollirTypes.toOllirType(lhsType);
         var code = new StringBuilder();
 
-        if (lhsNode.isInstance(VAR_REF_EXPR) && rhsNode.isInstance(BINARY_EXPR)) {
+        if (lhsNode.isInstance(VAR_REF_EXPR)) {
             var varName = lhsNode.get("name");
             var sanitizedName = ollirTypes.sanitizeId(varName);
 
-            var left = exprVisitor.visit(rhsNode.getChild(0));
-            var right = exprVisitor.visit(rhsNode.getChild(1));
+            if (!isFieldReference(varName, lhsNode) && rhsNode.isInstance(BINARY_EXPR)) {
+                var left = exprVisitor.visit(rhsNode.getChild(0));
+                var right = exprVisitor.visit(rhsNode.getChild(1));
 
-            var op = rhsNode.get("op");
+                var op = rhsNode.get("op");
 
-            code.append(left.getComputation());
-            code.append(right.getComputation());
+                code.append(left.getComputation());
+                code.append(right.getComputation());
 
-            code.append(sanitizedName)
-                    .append(typeString)
-                    .append(" :=").append(typeString)
-                    .append(" ")
-                    .append(left.getCode())
-                    .append(" ")
-                    .append(op)
-                    .append(typeString)
-                    .append(" ")
-                    .append(right.getCode())
-                    .append(END_STMT);
+                code.append(sanitizedName)
+                        .append(typeString)
+                        .append(SPACE).append(ASSIGN).append(typeString)
+                        .append(SPACE)
+                        .append(left.getCode())
+                        .append(SPACE)
+                        .append(op)
+                        .append(typeString)
+                        .append(SPACE)
+                        .append(right.getCode())
+                        .append(END_STMT);
 
-            return code.toString();
+                return code.toString();
+            }
+
+            if (isFieldReference(varName, lhsNode)) {
+                code.append(rhs.getComputation());
+                code.append("putfield(this, ")
+                        .append(sanitizedName).append(typeString)
+                        .append(", ")
+                        .append(rhs.getCode())
+                        .append(").V")
+                        .append(END_STMT);
+                return code.toString();
+            }
         }
-
-        var rhs = exprVisitor.visit(rhsNode);
 
         if (lhsNode.isInstance(ARRAY_ACCESS)) {
             var arrayExpr = exprVisitor.visit(lhsNode.getChild(0));
