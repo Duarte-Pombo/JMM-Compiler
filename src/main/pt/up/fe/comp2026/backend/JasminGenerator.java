@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static javax.xml.stream.XMLStreamConstants.SPACE;
+
 /**
  * Generates Jasmin code from an OllirResult.
  * <p>
@@ -269,21 +271,18 @@ public class JasminGenerator {
                         left.getName().equals(lhs.getName())) {
 
                     int c = Integer.parseInt(right.getLiteral());
-                    if (c >= -128 && c <= 127) {
-
-                        if (opType == OperationType.ADD) {
-                            code.append("iinc ")
-                                    .append(register.getVirtualReg()).append(" ")
+                    if (opType == OperationType.ADD) {
+                        if (c <= 127) {
+                            code.append("iinc").append(SPACE)
+                                    .append(register.getVirtualReg()).append(SPACE)
                                     .append(c).append(NL);
-
                             return code.toString();
                         }
-
-                        if (opType == OperationType.SUB) {
-                            code.append("iinc ")
+                    } else if (opType == OperationType.SUB) {
+                        if (c <= 128) {
+                            code.append("iinc").append(SPACE)
                                     .append(register.getVirtualReg())
-                                    .append(" ").append(-c).append(NL);
-
+                                    .append(SPACE).append(-c).append(NL);
                             return code.toString();
                         }
                     }
@@ -299,9 +298,9 @@ public class JasminGenerator {
                     if (opType == OperationType.ADD &&
                             c >= -128 && c <= 127) {
 
-                        code.append("iinc ")
+                        code.append("iinc").append(SPACE)
                                 .append(register.getVirtualReg())
-                                .append(" ").append(c).append(NL);
+                                .append(SPACE).append(c).append(NL);
 
                         return code.toString();
                     }
