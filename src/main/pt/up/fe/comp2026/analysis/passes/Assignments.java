@@ -41,11 +41,6 @@ public class Assignments extends AnalysisVisitor {
 
         var lType = types.getDeclaredType(varDecl);
 
-        if (lType.print().contains("void")) {
-            addReport(newError(varDecl, "Cannot use 'void' as a base type."));
-            return null;
-        }
-
         // Rearranged to allow for array validation
         if (varDecl.getChildren().size() <= 1) {
             return null;
