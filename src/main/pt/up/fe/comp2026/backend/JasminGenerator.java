@@ -242,6 +242,26 @@ public class JasminGenerator {
             isInsideAssignment = true;
 
             StringBuilder code = new StringBuilder();
+            if (assign.getDest() instanceof ArrayOperand arrayDest) {
+                var name = arrayDest.getName();
+                var reg = currentMethod.getVarTable().get(name);
+                var inst = types.getLoad(reg);
+
+                updateStack(1);
+                code.append(inst).append(NL);
+
+                var index = arrayDest.getIndexOperands().getFirst();
+                code.append(apply(index));
+
+                code.append(apply(assign.getRhs()));
+
+                var type = arrayDest.getType();
+                var typePrefix = types.getTypePrefix(type);
+
+                updateStack(-3);
+                code.append(typePrefix).append("astore").append(NL);
+                return code.toString();
+            }
 
             var lhs = (Operand) assign.getDest();
             var alias = fieldAliases.get(lhs.getName());
