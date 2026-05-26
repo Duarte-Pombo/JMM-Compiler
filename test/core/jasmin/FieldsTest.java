@@ -141,7 +141,7 @@ public class FieldsTest extends JmmTestEnv {
                         this.value = a;
                     }
                 }""");
-
+e
         assertTrue("", jasminCode.contains("putfield x/A/value I"));
 
     }

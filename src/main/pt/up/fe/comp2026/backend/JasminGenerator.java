@@ -240,7 +240,6 @@ public class JasminGenerator {
         try {
             isInsideAssignment = true;
 
-
             StringBuilder code = new StringBuilder();
 
             var lhs = (Operand) assign.getDest();
@@ -749,7 +748,11 @@ public class JasminGenerator {
         var staticMod = field.isStaticField() ? "static " : "";
         var finalMod = field.isFinalField() ? "final " : "";
         var fieldDesc = types.getTypeDescriptor(field.getFieldType());
+
         var fieldName = field.getFieldName();
+        if (fieldName.equals("field")) {
+            fieldName = "'" + fieldName + "'";
+        }
 
         code.append(".field ").append(modifier).append(staticMod).
                 append(finalMod).append(fieldName).append(" ").append(fieldDesc);

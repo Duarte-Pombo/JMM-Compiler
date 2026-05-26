@@ -130,6 +130,8 @@ public class LdcSelectionTest extends JmmTestEnv {
                     .method public method().i32 {
                         a.i32 :=.i32 -128.i32;
                         b.i32 :=.i32 -129.i32;
+                        c.i32 :=.i32 -32768.i32;
+                        d.i32 :=.i32 -32769.i32;
                         ret.i32 b.i32;
                     }
                 }
@@ -140,6 +142,9 @@ public class LdcSelectionTest extends JmmTestEnv {
         assertNotNull("Jasmin should be produced", jasminCode);
         assertTrue("Should use bipush for -128", jasminCode.contains("bipush -128"));
         assertTrue("Should use sipush for -129", jasminCode.contains("sipush -129"));
+        assertTrue("Should use sipush for -32768", jasminCode.contains("sipush -32768"));
+        assertTrue("Should use ldc for -32769", jasminCode.contains("ldc -32769"));
+
     }
 
     private String toJasminCodeFromJmm(String code) {
