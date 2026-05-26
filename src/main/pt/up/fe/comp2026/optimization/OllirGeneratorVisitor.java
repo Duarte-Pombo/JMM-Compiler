@@ -80,7 +80,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var lhsNode = node.getChild(0);
         var rhsNode = node.getChild(1);
         var rhs = exprVisitor.visit(rhsNode);
-
         JmmType lhsType = types.getExprType(lhsNode);
         String typeString = ollirTypes.toOllirType(lhsType);
         var code = new StringBuilder();
@@ -89,9 +88,32 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             var varName = lhsNode.get("name");
             var sanitizedName = ollirTypes.sanitizeId(varName);
 
-            code.append(rhs.getComputation());
+            if (!isFieldReference(varName, lhsNode) && rhsNode.isInstance(BINARY_EXPR)) {
+                var left = exprVisitor.visit(rhsNode.getChild(0));
+                var right = exprVisitor.visit(rhsNode.getChild(1));
+
+                var op = rhsNode.get("op");
+
+                code.append(left.getComputation());
+                code.append(right.getComputation());
+
+                code.append(sanitizedName)
+                        .append(typeString)
+                        .append(SPACE).append(ASSIGN).append(typeString)
+                        .append(SPACE)
+                        .append(left.getCode())
+                        .append(SPACE)
+                        .append(op)
+                        .append(typeString)
+                        .append(SPACE)
+                        .append(right.getCode())
+                        .append(END_STMT);
+
+                return code.toString();
+            }
 
             if (isFieldReference(varName, lhsNode)) {
+                code.append(rhs.getComputation());
                 code.append("putfield(this, ")
                         .append(sanitizedName).append(typeString)
                         .append(", ")
@@ -100,15 +122,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                         .append(END_STMT);
                 return code.toString();
             }
-
-            code.append(sanitizedName)
-                    .append(typeString)
-                    .append(SPACE)
-                    .append(ASSIGN).append(typeString).append(SPACE)
-                    .append(rhs.getCode())
-                    .append(END_STMT);
-
-            return code.toString();
         }
 
         if (lhsNode.isInstance(ARRAY_ACCESS)) {

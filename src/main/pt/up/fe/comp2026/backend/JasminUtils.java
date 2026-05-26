@@ -25,7 +25,10 @@ public class JasminUtils {
         fullClassnames = new HashMap<>();
 
         // Predefined classnames
-        fullClassnames.put("this", ollirResult.getOllirClass().getClassName());
+        var classUnit = ollirResult.getOllirClass();
+        var classFqName = classUnit.getClassFullyQualifiedName();
+        fullClassnames.put("this", classFqName);
+        fullClassnames.put(classUnit.getClassName(), classFqName);
         // This will be get caught as STRING OLLIR element type.
         // And classes cannot be named String, since it is an OLLIR reserved keyword
         //imports.put("String", "java/lang/String");
@@ -63,6 +66,7 @@ public class JasminUtils {
                 case INT32 -> "I";
                 case BOOLEAN -> "Z";
                 case VOID -> "V";
+                case STRING -> "L" + getClassPath("String") + ";";
                 default ->
                         throw new RuntimeException("Not implemented for element type '" + builtinType.getKind() + "'");
             };
@@ -117,6 +121,8 @@ public class JasminUtils {
         var prefix = getTypePrefix(reg.getVarType());
         var value = reg.getVirtualReg();
 
+        if (value <= 3 && value >=0) return prefix + "load_" + value;
+
         return prefix + "load " + value;
     }
 
@@ -124,9 +130,8 @@ public class JasminUtils {
         var prefix = getTypePrefix(reg.getVarType());
         var value = reg.getVirtualReg();
 
+        if (value <= 3 && value >=0) return prefix + "store_" + value;
+
         return prefix + "store " + value;
     }
-
-
-
 }
