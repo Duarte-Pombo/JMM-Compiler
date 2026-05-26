@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-
-
 /**
  * Generates Jasmin code from an OllirResult.
  * <p>
@@ -84,6 +82,7 @@ public class JasminGenerator {
         generators.put(OpCondInstruction.class, this::generateOpCond);
         generators.put(Field.class, this::generateField);
         generators.put(FieldInstruction.class, this::generateFieldInstruction);
+        generators.put(ArrayOperand.class, this::generateArrayOperand);
     }
 
 
@@ -403,6 +402,28 @@ public class JasminGenerator {
             code.append("new ").append(types.getClassPath(caller.getName())).append(NL);
             return code.toString();
         }
+    }
+
+    private String generateArrayOperand(ArrayOperand arrayOp) {
+        var code = new StringBuilder();
+
+        var name = arrayOp.getName();
+        var reg = currentMethod.getVarTable().get(name);
+        var inst = types.getLoad(reg);
+
+        updateStack(1);
+        code.append(inst).append(NL);
+
+        var index = arrayOp.getIndexOperands().getFirst();
+        code.append(apply(index));
+
+        var type = arrayOp.getType();
+        var typePrefix = types.getTypePrefix(type);
+
+        updateStack(-1);
+        code.append(typePrefix).append("aload").append(NL);
+
+        return code.toString();
     }
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
