@@ -3,6 +3,7 @@ package pt.up.fe.comp2026.backend;
 import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
+import org.specs.comp.ollir.type.ArrayType;
 import org.specs.comp.ollir.type.BuiltinKind;
 import org.specs.comp.ollir.type.BuiltinType;
 import org.specs.comp.ollir.type.Type;
@@ -83,6 +84,7 @@ public class JasminGenerator {
         generators.put(Field.class, this::generateField);
         generators.put(FieldInstruction.class, this::generateFieldInstruction);
         generators.put(ArrayOperand.class, this::generateArrayOperand);
+        generators.put(ArrayLengthInstruction.class, this::generateArrayLength);
     }
 
 
@@ -422,6 +424,15 @@ public class JasminGenerator {
 
         updateStack(-1);
         code.append(typePrefix).append("aload").append(NL);
+
+        return code.toString();
+    }
+
+    private String generateArrayLength(ArrayLengthInstruction inst) {
+        var code = new StringBuilder();
+        code.append(apply(inst.getOperands().getFirst()));
+
+        code.append("arraylength").append(NL);
 
         return code.toString();
     }
