@@ -65,9 +65,16 @@ public class IdentifierResolution extends AnalysisVisitor {
                 .map(method -> isLocalOrParam(idName, method))
                 .orElse(false);
 
-        var isField = !isStaticMethod && table.getField(idName).isPresent();
         var isCurrentClass = types.isCurrentClassName(idName);
         var isImportedClass = types.isImportedOrImplicitClassName(idName);
+        var hasField = table.getField(idName).isPresent();
+
+        if (!isLocalOrParam && hasField && isStaticMethod) {
+            addReport(newError(node, "Cannot access instance variable '" + idName + "' from a static context."));
+            return;
+        }
+
+        var isField = !isStaticMethod && hasField;
 
         if (!isLocalOrParam && !isField && !isCurrentClass && !isImportedClass) {
             addReport(newError(node, "Variable '" + idName + "' does not exist."));
