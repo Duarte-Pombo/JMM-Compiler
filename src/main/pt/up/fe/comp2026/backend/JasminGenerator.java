@@ -464,6 +464,9 @@ public class JasminGenerator {
         var op = switch (opType) {
             case ADD -> "add";
             case MUL -> "mul";
+            case SUB -> "sub";
+            case DIV -> "div";
+            case REM -> "rem";
             default -> throw new NotImplementedException(opType);
         };
 
