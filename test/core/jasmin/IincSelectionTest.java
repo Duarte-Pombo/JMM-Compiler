@@ -32,7 +32,6 @@ public class IincSelectionTest extends JmmTestEnv {
                         a = a - 128;
                     }
                 }""");
-
         assertNotNull("Jasmin should be produced", jasminCode);
         assertTrue("In-range update should use iinc", jasminCode.contains("iinc "));
     }
@@ -97,19 +96,30 @@ public class IincSelectionTest extends JmmTestEnv {
         assertNotNull("Jasmin should be produced", jasminCode);
         assertFalse("Out-of-range update should not use iinc", jasminCode.contains("iinc "));
     }
-
     @Test
     public void addConstantOnLeftShouldUseIinc() {
-        var jasminCode = toJasminCodeFromJmm("""
+        var ollirCode = """
                 package x;
-                class A {
-                    public void method() {
-                        int a;
-                        a = -2 + a;
+
+                A extends Object {
+                    .construct \"<init>\"().V {
+                        invokespecial(this.\"java.lang.Object\", \"<init>\").V;
                     }
-                }""");
+
+                    .method public method().V {
+                        a.i32 :=.i32 -2.i32 +.i32 a.i32;
+                        ret.V;
+                    }
+                }
+                """;
+
+        var jasminCode = toJasminCodeFromOllir(ollirCode);
+
+        assertNotNull("Jasmin should be produced", jasminCode);
         assertTrue("Addition with constant on left should use iinc", jasminCode.contains("iinc "));
     }
+
+
 
 
     private String toJasminCodeFromJmm(String code) {
@@ -139,6 +149,7 @@ public class IincSelectionTest extends JmmTestEnv {
         classUnit.buildVarTables();
 
         var ollirResult = new OllirResult(classUnit, List.<Report>of(), Map.of());
+        System.out.println("Generated OLLIR:\n" + ollirResult.getOllirCode());
         var jasminBackend = new JasminBackendImpl();
         var jasminResult = jasminBackend.toJasmin(ollirResult);
         assertNotNull("Jasmin result should not be null", jasminResult);

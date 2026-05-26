@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static javax.xml.stream.XMLStreamConstants.SPACE;
+
 
 /**
  * Generates Jasmin code from an OllirResult.
@@ -28,6 +28,7 @@ import static javax.xml.stream.XMLStreamConstants.SPACE;
  */
 public class JasminGenerator {
 
+    private static final String SPACE = " ";
     private static final String NL = "\n";
     private static final String TAB = "   ";
     private static final String SPACE = " ";
@@ -261,7 +262,6 @@ public class JasminGenerator {
             }
 
             var register = this.currentMethod.getVarTable().get(lhs.getName());
-
             if (assign.getRhs() instanceof BinaryOpInstruction binaryOp) {
 
                 var opType = binaryOp.getOperation().getOpType();
@@ -294,7 +294,6 @@ public class JasminGenerator {
                         right.getName().equals(lhs.getName())) {
 
                     int c = Integer.parseInt(left.getLiteral());
-
                     if (opType == OperationType.ADD &&
                             c >= -128 && c <= 127) {
 
