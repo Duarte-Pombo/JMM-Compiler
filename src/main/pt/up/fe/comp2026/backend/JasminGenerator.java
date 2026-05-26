@@ -28,6 +28,7 @@ public class JasminGenerator {
 
     private static final String NL = "\n";
     private static final String TAB = "   ";
+    private static final String SPACE = " ";
 
     private final OllirResult ollirResult;
 
@@ -72,6 +73,9 @@ public class JasminGenerator {
         generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
         generators.put(InvokeVirtualInstruction.class, this::generateInvokeVirtual);
         generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
+        generators.put(GotoInstruction.class, this::generateGoto);
+        generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
+        generators.put(OpCondInstruction.class, this::generateOpCond);
     }
 
 
@@ -174,6 +178,8 @@ public class JasminGenerator {
 
         var bodyCode = new StringBuilder();
         for (var inst : method.getInstructions()) {
+            method.getLabels(inst).forEach(label -> bodyCode.append(label).append(":").append(NL));
+
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
 
@@ -184,7 +190,7 @@ public class JasminGenerator {
         code.append(TAB).append(".limit stack ").append(maxStack).append(NL);
         code.append(TAB).append(".limit locals ").append(getLimitLocals(method)).append(NL);
 
-        code.append(TAB).append(bodyCode);
+        code.append(bodyCode);
 
         code.append(".end method\n");
         //System.out.println("METHOD:\n" + code);
@@ -442,4 +448,72 @@ public class JasminGenerator {
         return code.toString();
     }
 
+    private String generateGoto(GotoInstruction inst) {
+        return "goto" + SPACE + inst.getLabel() + NL;
+    }
+
+    private String generateSingleOpCond(SingleOpCondInstruction inst) {
+        var code = new StringBuilder();
+
+        var operand = inst.getCondition().getSingleOperand();
+
+        code.append(apply(operand));
+
+        code.append("ifne").append(SPACE).append(inst.getLabel()).append(NL);
+        updateStack(-1);
+
+        return code.toString();
+    }
+
+    private String generateOpCond(OpCondInstruction inst) {
+        var condition = inst.getCondition();
+
+        if (condition instanceof UnaryOpInstruction unaryOp) {
+            return generateUnaryOpCond(unaryOp, inst.getLabel());
+        }
+
+        if (condition instanceof BinaryOpInstruction binaryOp) {
+            return generateBinaryOpCond(binaryOp, inst.getLabel());
+        }
+
+        throw new NotImplementedException(condition.getClass());
+    }
+
+    private String generateUnaryOpCond(UnaryOpInstruction unaryOp, String label) {
+        var code = new StringBuilder();
+
+        code.append(apply(unaryOp.getOperand()));
+
+        var jumpInstruction = switch (unaryOp.getOperation().getOpType()) {
+            case LOGICAL_NOT -> "ifeq";
+            default -> throw new NotImplementedException(unaryOp.getOperation().getOpType());
+        };
+
+        code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+        updateStack(-1);
+
+        return code.toString();
+    }
+
+    private String generateBinaryOpCond(BinaryOpInstruction binaryOp, String label) {
+        var code = new StringBuilder();
+
+        code.append(apply(binaryOp.getLeftOperand()));
+        code.append(apply(binaryOp.getRightOperand()));
+
+        var jumpInstruction = switch (binaryOp.getOperation().getOpType()) {
+            case EQ -> "if_icmpeq";
+            case NEQ -> "if_icmpne";
+            case LTH -> "if_icmplt";
+            case GTH -> "if_icmpgt";
+            case LTE -> "if_icmple";
+            case GTE -> "if_icmpge";
+            default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+        };
+
+        code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+        updateStack(-2);
+
+        return code.toString();
+    }
 }
