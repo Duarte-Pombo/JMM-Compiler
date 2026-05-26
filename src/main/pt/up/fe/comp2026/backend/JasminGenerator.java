@@ -376,9 +376,9 @@ public class JasminGenerator {
     }
 
     private String generateOperand(Operand operand) {
-        // get registe
-        System.out.println("table:" + currentMethod.getVarTable());
-        System.out.println("op:" + operand);
+        // get register
+        // System.out.println("table:" + currentMethod.getVarTable());
+        // System.out.println("op:" + operand);
         var reg = currentMethod.getVarTable().get(operand.getName());
 
         if (reg == null) {
