@@ -28,6 +28,7 @@ public class JasminGenerator {
 
     private static final String NL = "\n";
     private static final String TAB = "   ";
+    private static final String SPACE = " ";
 
     private final OllirResult ollirResult;
 
@@ -67,11 +68,15 @@ public class JasminGenerator {
         generators.put(LiteralElement.class, this::generateLiteral);
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
+        generators.put(UnaryOpInstruction.class, this::generateUnaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
         generators.put(NewInstruction.class, this::generateNew);
         generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
         generators.put(InvokeVirtualInstruction.class, this::generateInvokeVirtual);
         generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
+        generators.put(GotoInstruction.class, this::generateGoto);
+        generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
+        generators.put(OpCondInstruction.class, this::generateOpCond);
     }
 
 
@@ -174,6 +179,8 @@ public class JasminGenerator {
 
         var bodyCode = new StringBuilder();
         for (var inst : method.getInstructions()) {
+            method.getLabels(inst).forEach(label -> bodyCode.append(label).append(":").append(NL));
+
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
 
@@ -184,7 +191,7 @@ public class JasminGenerator {
         code.append(TAB).append(".limit stack ").append(maxStack).append(NL);
         code.append(TAB).append(".limit locals ").append(getLimitLocals(method)).append(NL);
 
-        code.append(TAB).append(bodyCode);
+        code.append(bodyCode);
 
         code.append(".end method\n");
         //System.out.println("METHOD:\n" + code);
@@ -405,6 +412,46 @@ public class JasminGenerator {
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
 
         var code = new StringBuilder();
+        var opType = binaryOp.getOperation().getOpType();
+
+        if (isComparisonOp(opType)) {
+            var left = binaryOp.getLeftOperand();
+            var right = binaryOp.getRightOperand();
+            var trueLabel = utils.nextTemp("cmpTrue");
+            var endLabel = utils.nextTemp("cmpEnd");
+            var baseStack = currentStack;
+
+            if (right instanceof LiteralElement rightLit && "0".equals(rightLit.getLiteral())) {
+                code.append(apply(left));
+                var jumpInstruction = getZeroCompareJump(opType);
+                code.append(jumpInstruction).append(SPACE).append(trueLabel).append(NL);
+                updateStack(-1);
+            } else if (left instanceof LiteralElement leftLit && "0".equals(leftLit.getLiteral())) {
+                code.append(apply(right));
+                var jumpInstruction = getZeroCompareJump(swapComparisonOpType(opType));
+                code.append(jumpInstruction).append(SPACE).append(trueLabel).append(NL);
+                updateStack(-1);
+            } else {
+                code.append(apply(left));
+                code.append(apply(right));
+                var jumpInstruction = getIcmpCompareJump(opType);
+                code.append(jumpInstruction).append(SPACE).append(trueLabel).append(NL);
+                updateStack(-2);
+            }
+
+            baseStack = currentStack;
+            code.append("iconst_0").append(NL);
+            updateStack(1);
+            code.append("goto").append(SPACE).append(endLabel).append(NL);
+            currentStack = baseStack;
+            code.append(trueLabel).append(":").append(NL);
+            code.append("iconst_1").append(NL);
+            updateStack(1);
+            code.append(endLabel).append(":").append(NL);
+            currentStack = baseStack + 1;
+
+            return code.toString();
+        }
 
         // load values on the left and on the right
         code.append(apply(binaryOp.getLeftOperand()));
@@ -414,10 +461,13 @@ public class JasminGenerator {
         var typePrefix = types.getTypePrefix(binaryOp.getOperation().getTypeInfo());
 
         // apply operation
-        var op = switch (binaryOp.getOperation().getOpType()) {
+        var op = switch (opType) {
             case ADD -> "add";
             case MUL -> "mul";
-            default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            case SUB -> "sub";
+            case DIV -> "div";
+            case REM -> "rem";
+            default -> throw new NotImplementedException(opType);
         };
 
         code.append(typePrefix + op).append(NL);
@@ -442,4 +492,156 @@ public class JasminGenerator {
         return code.toString();
     }
 
+    private String generateGoto(GotoInstruction inst) {
+        return "goto" + SPACE + inst.getLabel() + NL;
+    }
+
+    private String generateSingleOpCond(SingleOpCondInstruction inst) {
+        var code = new StringBuilder();
+
+        var operand = inst.getCondition().getSingleOperand();
+
+        code.append(apply(operand));
+
+        code.append("ifne").append(SPACE).append(inst.getLabel()).append(NL);
+        updateStack(-1);
+
+        return code.toString();
+    }
+
+    private String generateOpCond(OpCondInstruction inst) {
+        var condition = inst.getCondition();
+
+        if (condition instanceof UnaryOpInstruction unaryOp) {
+            return generateUnaryOpCond(unaryOp, inst.getLabel());
+        }
+
+        if (condition instanceof BinaryOpInstruction binaryOp) {
+            return generateBinaryOpCond(binaryOp, inst.getLabel());
+        }
+
+        throw new NotImplementedException(condition.getClass());
+    }
+
+    private String generateUnaryOp(UnaryOpInstruction unaryOp) {
+        var code = new StringBuilder();
+        var opType = unaryOp.getOperation().getOpType();
+
+        return switch (opType) {
+            case LOGICAL_NOT -> {
+                var trueLabel = utils.nextTemp("notTrue");
+                var endLabel = utils.nextTemp("notEnd");
+                code.append(apply(unaryOp.getOperand()));
+                code.append("ifeq").append(SPACE).append(trueLabel).append(NL);
+                updateStack(-1);
+                var baseStack = currentStack;
+                code.append("iconst_0").append(NL);
+                updateStack(1);
+                code.append("goto").append(SPACE).append(endLabel).append(NL);
+                currentStack = baseStack;
+                code.append(trueLabel).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                updateStack(1);
+                code.append(endLabel).append(":").append(NL);
+                currentStack = baseStack + 1;
+                yield code.toString();
+            }
+            default -> throw new NotImplementedException(opType);
+        };
+    }
+
+    private String generateUnaryOpCond(UnaryOpInstruction unaryOp, String label) {
+        var code = new StringBuilder();
+
+        code.append(apply(unaryOp.getOperand()));
+
+        var jumpInstruction = switch (unaryOp.getOperation().getOpType()) {
+            case LOGICAL_NOT -> "ifeq";
+            default -> throw new NotImplementedException(unaryOp.getOperation().getOpType());
+        };
+
+        code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+        updateStack(-1);
+
+        return code.toString();
+    }
+
+    private boolean isComparisonOp(OperationType opType) {
+        return switch (opType) {
+            case EQ, NEQ, LTH, GTH, LTE, GTE -> true;
+            default -> false;
+        };
+    }
+
+    private OperationType swapComparisonOpType(OperationType opType) {
+        return switch (opType) {
+            case LTH -> OperationType.GTH;
+            case GTH -> OperationType.LTH;
+            case LTE -> OperationType.GTE;
+            case GTE -> OperationType.LTE;
+            case EQ, NEQ -> opType;
+            default -> throw new NotImplementedException(opType);
+        };
+    }
+
+    private String getZeroCompareJump(OperationType opType) {
+        return switch (opType) {
+            case EQ -> "ifeq";
+            case NEQ -> "ifne";
+            case LTH -> "iflt";
+            case GTH -> "ifgt";
+            case LTE -> "ifle";
+            case GTE -> "ifge";
+            default -> throw new NotImplementedException(opType);
+        };
+    }
+
+    private String getIcmpCompareJump(OperationType opType) {
+        return switch (opType) {
+            case EQ -> "if_icmpeq";
+            case NEQ -> "if_icmpne";
+            case LTH -> "if_icmplt";
+            case GTH -> "if_icmpgt";
+            case LTE -> "if_icmple";
+            case GTE -> "if_icmpge";
+            default -> throw new NotImplementedException(opType);
+        };
+    }
+
+    private String generateBinaryOpCond(BinaryOpInstruction binaryOp, String label) {
+        var code = new StringBuilder();
+        var left = binaryOp.getLeftOperand();
+        var right = binaryOp.getRightOperand();
+        var opType = binaryOp.getOperation().getOpType();
+
+        if (right instanceof LiteralElement rightLit && "0".equals(rightLit.getLiteral())) {
+            code.append(apply(left));
+
+            var jumpInstruction = getZeroCompareJump(opType);
+
+            code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+            updateStack(-1);
+            return code.toString();
+        }
+
+        if (left instanceof LiteralElement leftLit && "0".equals(leftLit.getLiteral())) {
+            code.append(apply(right));
+
+            var jumpInstruction = getZeroCompareJump(swapComparisonOpType(opType));
+
+            code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+            updateStack(-1);
+            return code.toString();
+        }
+
+        code.append(apply(left));
+        code.append(apply(right));
+
+        var jumpInstruction = getIcmpCompareJump(opType);
+
+        code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+        updateStack(-2);
+
+        return code.toString();
+    }
 }

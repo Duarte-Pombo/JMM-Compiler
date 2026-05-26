@@ -1,0 +1,16 @@
+package core.jasmin.branchstatements.ollir;
+
+NotEqualZero extends Object  {
+
+    .construct "<init>"().V {
+        invokespecial(this."java.lang.Object", "<init>").V;
+    }
+
+    .method public method(a.i32).i32 {
+        if (0.i32 !=.bool a.i32) goto then0;
+            ret.i32 0.i32;
+    then0:
+            ret.i32 1.i32;
+    }
+
+}
