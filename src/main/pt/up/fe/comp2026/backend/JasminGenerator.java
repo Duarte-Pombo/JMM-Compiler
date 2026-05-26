@@ -31,7 +31,6 @@ public class JasminGenerator {
     private static final String SPACE = " ";
     private static final String NL = "\n";
     private static final String TAB = "   ";
-    private static final String SPACE = " ";
 
     private final OllirResult ollirResult;
 
