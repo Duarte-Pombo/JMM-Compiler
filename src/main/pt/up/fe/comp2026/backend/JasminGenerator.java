@@ -497,9 +497,47 @@ public class JasminGenerator {
 
     private String generateBinaryOpCond(BinaryOpInstruction binaryOp, String label) {
         var code = new StringBuilder();
+        var left = binaryOp.getLeftOperand();
+        var right = binaryOp.getRightOperand();
 
-        code.append(apply(binaryOp.getLeftOperand()));
-        code.append(apply(binaryOp.getRightOperand()));
+        if (right instanceof LiteralElement rightLit && "0".equals(rightLit.getLiteral())) {
+            code.append(apply(left));
+
+            var jumpInstruction = switch (binaryOp.getOperation().getOpType()) {
+                case EQ -> "ifeq";
+                case NEQ -> "ifne";
+                case LTH -> "iflt";
+                case GTH -> "ifgt";
+                case LTE -> "ifle";
+                case GTE -> "ifge";
+                default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            };
+
+            code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+            updateStack(-1);
+            return code.toString();
+        }
+
+        if (left instanceof LiteralElement leftLit && "0".equals(leftLit.getLiteral())) {
+            code.append(apply(right));
+
+            var jumpInstruction = switch (binaryOp.getOperation().getOpType()) {
+                case EQ -> "ifeq";
+                case NEQ -> "ifne";
+                case LTH -> "ifgt";
+                case GTH -> "iflt";
+                case LTE -> "ifge";
+                case GTE -> "ifle";
+                default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            };
+
+            code.append(jumpInstruction).append(SPACE).append(label).append(NL);
+            updateStack(-1);
+            return code.toString();
+        }
+
+        code.append(apply(left));
+        code.append(apply(right));
 
         var jumpInstruction = switch (binaryOp.getOperation().getOpType()) {
             case EQ -> "if_icmpeq";
