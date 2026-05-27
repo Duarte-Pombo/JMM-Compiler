@@ -640,6 +640,8 @@ public class JasminGenerator {
             case SUB -> "sub";
             case DIV -> "div";
             case REM -> "rem";
+            case LOGICAL_AND -> "and";
+            case LOGICAL_OR  -> "or";
             default -> throw new NotImplementedException(opType);
         };
 
@@ -786,6 +788,16 @@ public class JasminGenerator {
         var left = binaryOp.getLeftOperand();
         var right = binaryOp.getRightOperand();
         var opType = binaryOp.getOperation().getOpType();
+
+        if (opType == OperationType.LOGICAL_AND || opType == OperationType.LOGICAL_OR) {
+            code.append(apply(left));
+            code.append(apply(right));
+            code.append(opType == OperationType.LOGICAL_AND ? "iand" : "ior").append(NL);
+            updateStack(-1);
+            code.append("ifne").append(SPACE).append(label).append(NL);
+            updateStack(-1);
+            return code.toString();
+        }
 
         if (right instanceof LiteralElement rightLit && "0".equals(rightLit.getLiteral())) {
             code.append(apply(left));
