@@ -47,6 +47,29 @@ public class IdentifierResolution extends AnalysisVisitor {
         var receiver = node.getChild(0);
         var fieldName = node.get("name");
 
+        var types = TypeUtils.with(table);
+        try {
+            var receiverType = types.getExprType(receiver);
+            if (receiverType.isClass()
+                    && receiverType.asClass().staticRef()
+                    && types.sameClass(receiverType.asClass().fullyQualifiedName(), table.getFullyQualifiedName())
+                    && table.getField(fieldName).isPresent()) {
+                var isStaticContext = node.getAncestor(JmmKind.METHOD_DECL)
+                        .map(this::isStaticMethod)
+                        .orElse(false);
+
+                if (!isStaticContext && node.getAncestor(JmmKind.MAIN_METHOD_DECL).isPresent()) {
+                    isStaticContext = true;
+                }
+
+                if (isStaticContext) {
+                    addReport(newError(node, "Cannot access instance field '" + fieldName + "' from a static context."));
+                    return null;
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+
         if (isCurrentClassInstance(receiver, table) && table.getField(fieldName).isEmpty()) {
             addReport(newError(node, "Field '" + fieldName + "' does not exist."));
         }
