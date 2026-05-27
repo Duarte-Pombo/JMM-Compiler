@@ -8,6 +8,10 @@ import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmAttributes;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Optional;
 public class IdentifierResolution extends AnalysisVisitor {
 
     @Override
@@ -47,6 +51,19 @@ public class IdentifierResolution extends AnalysisVisitor {
         var receiver = node.getChild(0);
         var fieldName = node.get("name");
 
+        var types = TypeUtils.with(table);
+        try {
+            var receiverType = types.getExprType(receiver);
+            if (receiverType.isClass()
+                    && receiverType.asClass().staticRef()
+                    && isStaticContext(node)
+                    && isInstanceFieldOnClass(receiverType.asClass().fullyQualifiedName(), fieldName, table, types)) {
+                addReport(newError(node, "Cannot access instance field '" + fieldName + "' from a static context."));
+                return null;
+            }
+        } catch (RuntimeException ignored) {
+        }
+
         if (isCurrentClassInstance(receiver, table) && table.getField(fieldName).isEmpty()) {
             addReport(newError(node, "Field '" + fieldName + "' does not exist."));
         }
@@ -65,9 +82,16 @@ public class IdentifierResolution extends AnalysisVisitor {
                 .map(method -> isLocalOrParam(idName, method))
                 .orElse(false);
 
-        var isField = !isStaticMethod && table.getField(idName).isPresent();
         var isCurrentClass = types.isCurrentClassName(idName);
         var isImportedClass = types.isImportedOrImplicitClassName(idName);
+        var hasField = table.getField(idName).isPresent();
+
+        if (!isLocalOrParam && hasField && isStaticMethod) {
+            addReport(newError(node, "Cannot access instance variable '" + idName + "' from a static context."));
+            return;
+        }
+
+        var isField = !isStaticMethod && hasField;
 
         if (!isLocalOrParam && !isField && !isCurrentClass && !isImportedClass) {
             addReport(newError(node, "Variable '" + idName + "' does not exist."));
@@ -76,6 +100,46 @@ public class IdentifierResolution extends AnalysisVisitor {
 
     private boolean isStaticMethod(JmmNode methodNode) {
         return methodNode.getBoolean(JmmAttributes.METHOD_DECL.IS_STATIC, false);
+    }
+
+    private boolean isStaticContext(JmmNode node) {
+        var methodNode = node.getAncestor(JmmKind.METHOD_DECL);
+        if (methodNode.isPresent()) {
+            return isStaticMethod(methodNode.get());
+        }
+
+        return node.getAncestor(JmmKind.MAIN_METHOD_DECL).isPresent();
+    }
+
+    private boolean isInstanceFieldOnClass(String className, String fieldName, SymbolTable table, TypeUtils types) {
+        if (types.sameClass(className, table.getFullyQualifiedName())) {
+            return table.getField(fieldName).isPresent();
+        }
+
+        return resolveRuntimeField(types, className, fieldName)
+                .map(field -> !Modifier.isStatic(field.getModifiers()))
+                .orElse(false);
+    }
+
+    private Optional<Field> resolveRuntimeField(TypeUtils types, String className, String fieldName) {
+        return types.resolveRuntimeClass(className)
+                .flatMap(runtimeClass -> findVisibleField(runtimeClass, fieldName));
+    }
+
+    private Optional<Field> findVisibleField(Class<?> runtimeClass, String fieldName) {
+        var current = runtimeClass;
+        while (current != null) {
+            try {
+                var field = current.getDeclaredField(fieldName);
+                if (Modifier.isPrivate(field.getModifiers())) {
+                    return Optional.empty();
+                }
+                return Optional.of(field);
+            } catch (NoSuchFieldException ignored) {
+            }
+            current = current.getSuperclass();
+        }
+        return Optional.empty();
     }
 
     private boolean isLocalOrParam(String idName, JmmNode methodNode) {
