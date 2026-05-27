@@ -3,6 +3,7 @@ package pt.up.fe.comp2026.backend;
 import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
+import org.specs.comp.ollir.type.ArrayType;
 import org.specs.comp.ollir.type.BuiltinKind;
 import org.specs.comp.ollir.type.BuiltinType;
 import org.specs.comp.ollir.type.Type;
@@ -13,13 +14,12 @@ import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
+import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-
 
 /**
  * Generates Jasmin code from an OllirResult.
@@ -83,6 +83,8 @@ public class JasminGenerator {
         generators.put(OpCondInstruction.class, this::generateOpCond);
         generators.put(Field.class, this::generateField);
         generators.put(FieldInstruction.class, this::generateFieldInstruction);
+        generators.put(ArrayOperand.class, this::generateArrayOperand);
+        generators.put(ArrayLengthInstruction.class, this::generateArrayLength);
     }
 
 
@@ -240,6 +242,26 @@ public class JasminGenerator {
             isInsideAssignment = true;
 
             StringBuilder code = new StringBuilder();
+            if (assign.getDest() instanceof ArrayOperand arrayDest) {
+                var name = arrayDest.getName();
+                var reg = currentMethod.getVarTable().get(name);
+                var inst = types.getLoad(reg);
+
+                updateStack(1);
+                code.append(inst).append(NL);
+
+                var index = arrayDest.getIndexOperands().getFirst();
+                code.append(apply(index));
+
+                code.append(apply(assign.getRhs()));
+
+                var type = arrayDest.getType();
+                var typePrefix = types.getTypePrefix(type);
+
+                updateStack(-3);
+                code.append(typePrefix).append("astore").append(NL);
+                return code.toString();
+            }
 
             var lhs = (Operand) assign.getDest();
             var alias = fieldAliases.get(lhs.getName());
@@ -355,6 +377,8 @@ public class JasminGenerator {
 
     private String generateOperand(Operand operand) {
         // get register
+        // System.out.println("table:" + currentMethod.getVarTable());
+        // System.out.println("op:" + operand);
         var reg = currentMethod.getVarTable().get(operand.getName());
 
         if (reg == null) {
@@ -371,10 +395,66 @@ public class JasminGenerator {
     }
 
     private String generateNew(NewInstruction newInst) {
-        var caller = (Operand) newInst.getCaller();
+        var code = new StringBuilder();
+
+        if (newInst.getReturnType() instanceof ArrayType arrayType) {
+            var elementType = arrayType.getElementType();
+            String typeKeyword;
+
+            if (elementType instanceof BuiltinType builtinType) {
+                typeKeyword = switch (builtinType.getKind()) {
+                    case INT32 -> "int";
+                    case BOOLEAN -> "boolean";
+                    default -> throw new RuntimeException("Unsupported array element type: " + builtinType.getKind());
+                };
+            } else {
+                throw new RuntimeException("Cannot create primitive array of non-builtin type.");
+            }
+
+            var sizeOperand = newInst.getOperands().get(1);
+            code.append(apply(sizeOperand));
+            code.append("newarray ").append(typeKeyword).append(NL);
+
+            return code.toString();
+
+        } else {
+            var caller = (Operand) newInst.getCaller();
+            updateStack(1);
+
+            code.append("new ").append(types.getClassPath(caller.getName())).append(NL);
+            return code.toString();
+        }
+    }
+
+    private String generateArrayOperand(ArrayOperand arrayOp) {
+        var code = new StringBuilder();
+
+        var name = arrayOp.getName();
+        var reg = currentMethod.getVarTable().get(name);
+        var inst = types.getLoad(reg);
 
         updateStack(1);
-        return "new " + types.getClassPath(caller.getName()) + NL;
+        code.append(inst).append(NL);
+
+        var index = arrayOp.getIndexOperands().getFirst();
+        code.append(apply(index));
+
+        var type = arrayOp.getType();
+        var typePrefix = types.getTypePrefix(type);
+
+        updateStack(-1);
+        code.append(typePrefix).append("aload").append(NL);
+
+        return code.toString();
+    }
+
+    private String generateArrayLength(ArrayLengthInstruction inst) {
+        var code = new StringBuilder();
+        code.append(apply(inst.getOperands().getFirst()));
+
+        code.append("arraylength").append(NL);
+
+        return code.toString();
     }
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
