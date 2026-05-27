@@ -46,6 +46,36 @@ public class StaticContextInstanceAccessTest extends JmmTestEnv {
                 !errorReports(semantics).isEmpty());
     }
 
+    @Test
+    public void importedClassInstanceFieldInStaticMethodShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                import examples.GetterAndSetter;
+                class A {
+                    public static int m() {
+                        return GetterAndSetter.a;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for imported instance field access from static context",
+                !errorReports(semantics).isEmpty());
+    }
+
+    @Test
+    public void inheritedClassInstanceFieldInStaticMethodShouldFail() {
+        var semantics = analyzeSnippet("""
+                package x;
+                import examples.GetterAndSetter;
+                class A extends GetterAndSetter {
+                    public static int m() {
+                        return GetterAndSetter.a;
+                    }
+                }""");
+
+        assertTrue("Expected semantic error for inherited instance field access from static context",
+                !errorReports(semantics).isEmpty());
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();
