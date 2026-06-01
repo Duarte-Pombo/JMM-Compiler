@@ -14,11 +14,8 @@ import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
-import java.lang.annotation.ElementType;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -48,7 +45,6 @@ public class JasminGenerator {
     private final JasminUtils types;
     private OptUtils utils;
     private final FunctionClassMap<TreeNode, String> generators;
-    private final Map<String, FieldAlias> fieldAliases;
 
     public JasminGenerator(OllirResult ollirResult) {
         this.ollirResult = ollirResult;
@@ -63,7 +59,6 @@ public class JasminGenerator {
         types = new JasminUtils(ollirResult);
         // Initialize everytime we start a method
         utils = null;
-        fieldAliases = new HashMap<>();
         this.generators = new FunctionClassMap<>();
         generators.put(ClassUnit.class, this::generateClassUnit);
         generators.put(Method.class, this::generateMethod);
@@ -264,22 +259,6 @@ public class JasminGenerator {
             }
 
             var lhs = (Operand) assign.getDest();
-            var alias = fieldAliases.get(lhs.getName());
-            if (alias != null && !(assign.getRhs() instanceof GetFieldInstruction)) {
-                code.append(apply(alias.object));
-                code.append(apply(assign.getRhs()));
-
-                var ownerName = alias.object.getName().equals("this")
-                        ? ollirResult.getOllirClass().getClassFullyQualifiedName()
-                        : types.getClassName(alias.object.getType());
-
-                code.append("putfield ").append(types.getClassPath(ownerName))
-                        .append("/").append(alias.fieldName).append(" ")
-                        .append(types.getTypeDescriptor(alias.fieldType)).append(NL);
-                updateStack(-2);
-                fieldAliases.remove(lhs.getName());
-                return code.toString();
-            }
 
             var register = this.currentMethod.getVarTable().get(lhs.getName());
             if (assign.getRhs() instanceof BinaryOpInstruction binaryOp) {
@@ -327,9 +306,6 @@ public class JasminGenerator {
 
             }
 
-            if (assign.getRhs() instanceof GetFieldInstruction getField) {
-                fieldAliases.put(lhs.getName(), new FieldAlias(getField.getObject(), getField.getField(), getField.getFieldType()));
-            }
 
             code.append(apply(assign.getRhs()));
 
@@ -896,17 +872,5 @@ public class JasminGenerator {
         }
 
         throw new NotImplementedException(fieldInst.getInstType());
-    }
-
-    private static final class FieldAlias {
-        private final Operand object;
-        private final String fieldName;
-        private final Type fieldType;
-
-        private FieldAlias(Operand object, Operand field, Type fieldType) {
-            this.object = object;
-            this.fieldName = field.getName();
-            this.fieldType = fieldType;
-        }
     }
 }
