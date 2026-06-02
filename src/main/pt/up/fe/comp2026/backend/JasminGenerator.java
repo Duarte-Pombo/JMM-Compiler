@@ -128,33 +128,70 @@ public class JasminGenerator {
             code.append(NL);
         }
 
-        // generate a single constructor method
-        var defaultConstructor = """
-                ;default constructor
-                .method public <init>()V
-                    .limit stack 1
-                    .limit locals 1
-                    aload_0
-                    invokespecial %s/<init>()V
-                    return
-                .end method
-                """.formatted(fullSuperClass);
-        code.append(defaultConstructor);
+        // Build constructor, pulling in any field-initializer instructions
+        // from the OLLIR constructor body (putfield, invocations, etc.)
+        code.append(generateConstructor(fullSuperClass));
 
-        // generate code for all other methods
+        // generate code for all other (non-constructor) methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
-
-            // Ignore constructor, since there is always one constructor
-            // that receives no arguments, and has been already added
-            // previously
             if (method.isConstructMethod()) {
                 continue;
             }
-
             code.append(apply(method));
         }
 
         return code.toString();
+    }
+
+    private String generateConstructor(String fullSuperClass) {
+
+        var ollirConstructor = ollirResult.getOllirClass().getMethods().stream()
+                .filter(Method::isConstructMethod)
+                .findFirst();
+
+        currentMethod = ollirConstructor.orElse(null);
+        currentStack = 0;
+        maxStack = 0;
+        utils = new OptUtils(null);
+
+        var fieldInitCode = new StringBuilder();
+
+        if (ollirConstructor.isPresent()) {
+            var instructions = ollirConstructor.get().getInstructions();
+            for (var inst : instructions) {
+                // Skip the invokespecial this.<init>
+                if (inst instanceof InvokeSpecialInstruction invokeSpecial) {
+                    var methodNameElem = invokeSpecial.getMethodName();
+                    String methodNameStr = (methodNameElem instanceof LiteralElement lit)
+                            ? lit.getLiteral() : methodNameElem.toString();
+                    if (methodNameStr.contains("init")) {
+                        continue;
+                    }
+                }
+                var instCode = apply(inst);
+                // strip leading/trailing blank lines but keep the instruction
+                fieldInitCode.append(TAB).append(TAB).append(instCode.stripLeading());
+            }
+        }
+
+        int stackNeeded = Math.max(maxStack + 1, 2);
+        int localsNeeded = (ollirConstructor.isPresent())
+                ? getLimitLocals(ollirConstructor.get())
+                : 1;
+        localsNeeded = Math.max(localsNeeded, 1);
+
+        currentMethod = null;
+
+        return """
+                ;default constructor
+                .method public <init>()V
+                   .limit stack %d
+                   .limit locals %d
+                   aload_0
+                   invokespecial %s/<init>()V
+                %s   return
+                .end method
+                """.formatted(stackNeeded, localsNeeded, fullSuperClass, fieldInitCode);
     }
 
     private String generateMethod(Method method) {
