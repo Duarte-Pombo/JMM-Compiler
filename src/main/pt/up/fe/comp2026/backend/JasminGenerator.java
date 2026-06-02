@@ -157,28 +157,26 @@ public class JasminGenerator {
         var fieldInitCode = new StringBuilder();
 
         if (ollirConstructor.isPresent()) {
-            var instructions = ollirConstructor.get().getInstructions();
-            for (var inst : instructions) {
-                // Skip the invokespecial this.<init>
+            for (var inst : ollirConstructor.get().getInstructions()) {
+                // Skip the invokespecial(this, "<init>")
                 if (inst instanceof InvokeSpecialInstruction invokeSpecial) {
+                    var callerName = (invokeSpecial.getCaller() instanceof Operand op) ? op.getName() : "";
                     var methodNameElem = invokeSpecial.getMethodName();
                     String methodNameStr = (methodNameElem instanceof LiteralElement lit)
                             ? lit.getLiteral() : methodNameElem.toString();
-                    if (methodNameStr.contains("init")) {
+                    if ("this".equals(callerName) && methodNameStr.contains("init")) {
                         continue;
                     }
                 }
-                var instCode = apply(inst);
-                // strip leading/trailing blank lines but keep the instruction
-                fieldInitCode.append(TAB).append(TAB).append(instCode.stripLeading());
+                fieldInitCode.append(TAB).append(TAB)
+                        .append(apply(inst).stripLeading());
             }
         }
 
         int stackNeeded = Math.max(maxStack + 1, 2);
-        int localsNeeded = (ollirConstructor.isPresent())
-                ? getLimitLocals(ollirConstructor.get())
+        int localsNeeded = ollirConstructor.isPresent()
+                ? Math.max(getLimitLocals(ollirConstructor.get()), 1)
                 : 1;
-        localsNeeded = Math.max(localsNeeded, 1);
 
         currentMethod = null;
 
@@ -344,6 +342,16 @@ public class JasminGenerator {
             }
 
 
+            if (assign.getRhs() instanceof NewInstruction newInst
+                    && !(newInst.getReturnType() instanceof ArrayType)) {
+                code.append(apply(assign.getRhs())); // new SomeClass  (+1 stack)
+                updateStack(1);
+                code.append("dup").append(NL);       // dup for invokespecial (+1 stack)
+                updateStack(-1);
+                code.append(types.getStore(register)).append(NL); // astore N (-1 stack)
+                return code.toString();
+            }
+
             code.append(apply(assign.getRhs()));
 
             updateStack(-1);
@@ -473,12 +481,24 @@ public class JasminGenerator {
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecial) {
         var code = new StringBuilder();
 
-        code.append(apply(invokeSpecial.getCaller()));
+        var caller = invokeSpecial.getCaller();
+
+        // When invokespecial is called on a non-this operand (e.g. `tmp0` after
+        // `new SomeClass / dup / astore`), the uninitialized reference is already
+        // sitting on the stack from the `dup` we emitted in generateAssign.
+        // Loading the caller from its register would push the INITIALIZED reference
+        // and leave the uninitialized one unreachable, causing a VerifyError.
+        // For `this` (super constructor calls) we always load normally.
+        boolean callerIsThis = (caller instanceof Operand callerOp) && "this".equals(callerOp.getName());
+        if (callerIsThis) {
+            code.append(apply(caller));
+        }
+        // else: uninitialized ref already on stack from prior dup — do not re-load
+
         for (var argument : invokeSpecial.getArguments()) {
             code.append(apply(argument));
         }
 
-        var caller = invokeSpecial.getCaller();
         var owner = invokeSpecial.getSuperClass()
                 .orElseGet(() -> types.getClassName(caller.getType()));
 
