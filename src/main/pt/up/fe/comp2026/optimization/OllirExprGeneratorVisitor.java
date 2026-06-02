@@ -139,8 +139,13 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     private OllirExprResult visitUnaryExpr(JmmNode node, Void unused) {
         var op = node.get("op");
         var valueNode = node.getChild(0);
-        var value = visit(valueNode);
         var intType = ollirTypes.toOllirType(TypeUtils.intType());
+
+        if ("++".equals(op) || "--".equals(op)) {
+            return visitIncrementExpr(op, valueNode, intType);
+        }
+
+        var value = visit(valueNode);
 
         if ("+".equals(op)) return value;
 
@@ -154,18 +159,74 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
             return new OllirExprResult(code, computation);
         }
 
-        if ("++".equals(op) || "--".equals(op)) {
-            var code = ollirTypes.nextTemp() + intType;
-            var numericOp = "++".equals(op) ? "+" : "-";
-            computation.append(code).append(SPACE).append(ASSIGN).append(intType).append(SPACE).append(value.getCode())
-                    .append(SPACE).append(numericOp).append(intType).append(SPACE).append("1").append(intType).append(END_STMT);
-
-            if (valueNode.isInstance(VAR_REF_EXPR)) {
-                computation.append(value.getCode()).append(SPACE).append(ASSIGN).append(intType).append(SPACE).append(code).append(END_STMT);
-            }
-            return new OllirExprResult(code, computation);
-        }
         throw new RuntimeException("Unsupported unary operator '" + op + "'");
+    }
+
+    private OllirExprResult visitIncrementExpr(String op, JmmNode valueNode, String intType) {
+        var numericOp = "++".equals(op) ? "+" : "-";
+
+        if (valueNode.isInstance(ARRAY_ACCESS)) {
+            var array = visit(valueNode.getChild(0));
+            var index = visit(valueNode.getChild(1));
+            var oldValue = ollirTypes.nextTemp() + intType;
+            var newValue = ollirTypes.nextTemp() + intType;
+
+            StringBuilder computation = new StringBuilder();
+            computation.append(array.getComputation());
+            computation.append(index.getComputation());
+            computation.append(oldValue).append(SPACE).append(ASSIGN).append(intType).append(SPACE)
+                    .append(array.getCode()).append("[").append(index.getCode()).append("]").append(intType).append(END_STMT);
+            appendIncrementComputation(computation, newValue, oldValue, numericOp, intType);
+            computation.append(array.getCode()).append("[").append(index.getCode()).append("]").append(intType)
+                    .append(SPACE).append(ASSIGN).append(intType).append(SPACE).append(newValue).append(END_STMT);
+
+            return new OllirExprResult(newValue, computation);
+        }
+
+        if (valueNode.isInstance(FIELD_ACCESS)) {
+            var receiver = visit(valueNode.getChild(0));
+            var fieldType = ollirTypes.toOllirType(types.getExprType(valueNode));
+            var field = ollirTypes.sanitizeId(valueNode.get("name")) + fieldType;
+            var oldValue = ollirTypes.nextTemp() + intType;
+            var newValue = ollirTypes.nextTemp() + intType;
+
+            StringBuilder computation = new StringBuilder();
+            computation.append(receiver.getComputation());
+            computation.append(oldValue).append(SPACE).append(ASSIGN).append(intType).append(SPACE)
+                    .append("getfield(").append(receiver.getCode()).append(", ").append(field).append(")").append(fieldType)
+                    .append(END_STMT);
+            appendIncrementComputation(computation, newValue, oldValue, numericOp, intType);
+            computation.append("putfield(").append(receiver.getCode()).append(", ").append(field).append(", ")
+                    .append(newValue).append(").V").append(END_STMT);
+
+            return new OllirExprResult(newValue, computation);
+        }
+
+        var value = visit(valueNode);
+        var newValue = ollirTypes.nextTemp() + intType;
+        StringBuilder computation = new StringBuilder();
+        computation.append(value.getComputation());
+        appendIncrementComputation(computation, newValue, value.getCode(), numericOp, intType);
+
+        if (valueNode.isInstance(VAR_REF_EXPR)) {
+            var varName = valueNode.get("name");
+            if (isFieldReference(varName, valueNode)) {
+                computation.append("putfield(this, ")
+                        .append(ollirTypes.sanitizeId(varName)).append(intType)
+                        .append(", ").append(newValue)
+                        .append(").V").append(END_STMT);
+            } else {
+                computation.append(value.getCode()).append(SPACE).append(ASSIGN).append(intType).append(SPACE)
+                        .append(newValue).append(END_STMT);
+            }
+        }
+
+        return new OllirExprResult(newValue, computation);
+    }
+
+    private void appendIncrementComputation(StringBuilder computation, String target, String value, String numericOp, String intType) {
+        computation.append(target).append(SPACE).append(ASSIGN).append(intType).append(SPACE).append(value)
+                .append(SPACE).append(numericOp).append(intType).append(SPACE).append("1").append(intType).append(END_STMT);
     }
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
