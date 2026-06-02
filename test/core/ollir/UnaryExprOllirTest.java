@@ -56,6 +56,37 @@ public class UnaryExprOllirTest extends JmmTestEnv {
         assertTrue("Prefix -- should keep variable update as assignment", countOccurrences(ollirCode, "a.i32 :=.i32") >= 2);
     }
 
+    @Test
+    public void prefixIncrementShouldWriteBackToField() {
+        var ollirCode = toOllirCode("""
+                package x;
+                class A {
+                    int a;
+
+                    public int method() {
+                        return ++a;
+                    }
+                }""");
+
+        assertTrue("Prefix ++ should read the field", ollirCode.contains("getfield(this, a.i32).i32"));
+        assertTrue("Prefix ++ should write back to the field", ollirCode.contains("putfield(this, a.i32,"));
+    }
+
+    @Test
+    public void prefixIncrementShouldWriteBackToArrayElement() {
+        var ollirCode = toOllirCode("""
+                package x;
+                class A {
+                    public int method(int[] b) {
+                        return ++b[0];
+                    }
+                }""");
+
+        assertTrue("Prefix ++ should read the array element", ollirCode.contains("b.array.i32[0.i32].i32"));
+        assertTrue("Prefix ++ should write back to the array element",
+                countOccurrences(ollirCode, "b.array.i32[0.i32].i32 :=.i32") >= 1);
+    }
+
     private String toOllirCode(String code) {
         var parserResult = parseSnippet(code);
         assertTrue("Unexpected parser errors", parserResult.getReports(ReportType.ERROR).isEmpty());
