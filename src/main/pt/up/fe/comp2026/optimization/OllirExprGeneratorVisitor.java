@@ -291,14 +291,25 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     }
 
     private OllirExprResult visitNewArray(JmmNode node, Void unused) {
-        var sizeOllir = visit(node.getChild(0));
         var arrayTypeOllir = ollirTypes.toOllirType(types.getExprType(node));
         String arrayTemp = ollirTypes.nextTemp() + arrayTypeOllir;
 
         StringBuilder computation = new StringBuilder();
-        computation.append(sizeOllir.getComputation());
+        StringBuilder sizesCode = new StringBuilder();
+
+        // Iterate over all children (each represents the size of a dimension)
+        for (int i = 0; i < node.getNumChildren(); i++) {
+            var sizeOllir = visit(node.getChild(i));
+            computation.append(sizeOllir.getComputation());
+
+            if (i > 0) {
+                sizesCode.append(", ");
+            }
+            sizesCode.append(sizeOllir.getCode());
+        }
+
         computation.append(arrayTemp).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
-                .append("new(array, ").append(sizeOllir.getCode()).append(")").append(arrayTypeOllir).append(END_STMT);
+                .append("new(array, ").append(sizesCode).append(")").append(arrayTypeOllir).append(END_STMT);
 
         return new OllirExprResult(arrayTemp, computation);
     }
