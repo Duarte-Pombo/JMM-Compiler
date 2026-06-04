@@ -267,37 +267,54 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String visitArrayAssign(JmmNode node, Void unused) {
         String array = node.get("var");
-        var idx = node.getChild(0);
-        var val = node.getChild(1);
+        int numIndices = node.getNumChildren() - 1;
+        var valNode = node.getChild(numIndices); // The value to assign is always the last child
 
-        var idxOllir = exprVisitor.visit(idx);
-        var valOllir = exprVisitor.visit(val);
+        var valOllir = exprVisitor.visit(valNode);
 
         var arrayType = types.getVariableType(array, node)
                 .orElseThrow(() -> new RuntimeException("Array variable '" + array + "' is not defined in current scope"));
         String arrayTypeOllir = ollirTypes.toOllirType(arrayType);
 
-        var elementType = types.getExprType(val);
+        var elementType = types.getExprType(valNode);
         String elementTypeOllir = ollirTypes.toOllirType(elementType);
 
         StringBuilder code = new StringBuilder();
-        String arrayCode = ollirTypes.sanitizeId(array) + arrayTypeOllir;
+        String currentArrayCode = ollirTypes.sanitizeId(array) + arrayTypeOllir;
+        JmmType currentArrayJmmType = arrayType;
 
+        // Handle if the base array is a class field
         if (isFieldReference(array, node)) {
-            arrayCode = ollirTypes.nextTemp() + arrayTypeOllir;
-            code.append(arrayCode).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
+            currentArrayCode = ollirTypes.nextTemp() + arrayTypeOllir;
+            code.append(currentArrayCode).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
                     .append("getfield(this, ")
                     .append(ollirTypes.sanitizeId(array)).append(arrayTypeOllir)
                     .append(")").append(arrayTypeOllir).append(END_STMT);
         }
 
-        code.append(idxOllir.getComputation());
+        for (int i = 0; i < numIndices - 1; i++) {
+            var idxOllir = exprVisitor.visit(node.getChild(i));
+            code.append(idxOllir.getComputation());
+
+            currentArrayJmmType = ((pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) currentArrayJmmType).itemType();
+            String peeledTypeOllir = ollirTypes.toOllirType(currentArrayJmmType);
+
+            String tempArray = ollirTypes.nextTemp() + peeledTypeOllir;
+            code.append(tempArray).append(SPACE).append(ASSIGN).append(peeledTypeOllir).append(SPACE)
+                    .append(currentArrayCode).append("[").append(idxOllir.getCode()).append("]").append(peeledTypeOllir).append(END_STMT);
+
+            currentArrayCode = tempArray;
+        }
+
+        var lastIdxOllir = exprVisitor.visit(node.getChild(numIndices - 1));
+        code.append(lastIdxOllir.getComputation());
         code.append(valOllir.getComputation());
 
-        code.append(arrayCode).append("[").append(idxOllir.getCode()).append("]")
+        code.append(currentArrayCode).append("[").append(lastIdxOllir.getCode()).append("]")
                 .append(elementTypeOllir).append(SPACE).append(ASSIGN)
                 .append(elementTypeOllir).append(SPACE)
                 .append(valOllir.getCode()).append(END_STMT);
+
         return code.toString();
     }
 

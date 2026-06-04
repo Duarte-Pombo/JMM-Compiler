@@ -1,0 +1,10 @@
+package extensions.jmm;
+import examples.Pair;
+
+class InstantiateWithArgs {
+    public int testNewWithArgs() {
+        Pair p;
+        p = new Pair(10, 20);
+        return p.getLeft();
+    }
+}

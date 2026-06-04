@@ -1,0 +1,15 @@
+package extensions.ollir;
+import examples.Pair;
+
+InstantiateWithArgs extends Object {
+    .construct "<init>"().V {
+        invokespecial(this.Object, "<init>").V;
+    }
+
+    .method public testNewWithArgs().i32 {
+        tmp0.Pair :=.Pair new(Pair).Pair;
+        invokespecial(tmp0.Pair, "<init>", 10.i32, 20.i32).V;
+        tmp1.i32 :=.i32 invokevirtual(tmp0.Pair, "getLeft").i32;
+        ret.i32 tmp1.i32;
+    }
+}

@@ -1,0 +1,17 @@
+package extensions.ollir;
+
+LocalStaticCall extends Object {
+    .construct "<init>"().V {
+        invokespecial(this.Object, "<init>").V;
+    }
+
+    .method public static myStaticMethod().i32 {
+        ret.i32 42.i32;
+    }
+
+    .method public testLocalStatic().i32 {
+        // Invoking the static method from the local class
+        tmp0.i32 :=.i32 invokestatic(LocalStaticCall, "myStaticMethod").i32;
+        ret.i32 tmp0.i32;
+    }
+}

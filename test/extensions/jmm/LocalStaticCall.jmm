@@ -1,0 +1,13 @@
+package extensions.jmm;
+
+class LocalStaticCall {
+
+    public static int myStaticMethod() {
+        return 42;
+    }
+
+    public int testLocalStatic() {
+        // Calling a static method defined in the same class
+        return LocalStaticCall.myStaticMethod();
+    }
+}
