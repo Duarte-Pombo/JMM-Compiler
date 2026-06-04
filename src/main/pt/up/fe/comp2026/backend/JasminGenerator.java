@@ -164,7 +164,7 @@ public class JasminGenerator {
                     var methodNameElem = invokeSpecial.getMethodName();
                     String methodNameStr = (methodNameElem instanceof LiteralElement lit)
                             ? lit.getLiteral() : methodNameElem.toString();
-                    if ("this".equals(callerName) && methodNameStr.contains("init")) {
+                    if ("this".equals(callerName) && methodNameStr.contains("<init>")) {
                         continue;
                     }
                 }
@@ -483,17 +483,12 @@ public class JasminGenerator {
 
         var caller = invokeSpecial.getCaller();
 
-        // When invokespecial is called on a non-this operand (e.g. `tmp0` after
-        // `new SomeClass / dup / astore`), the uninitialized reference is already
-        // sitting on the stack from the `dup` we emitted in generateAssign.
-        // Loading the caller from its register would push the INITIALIZED reference
-        // and leave the uninitialized one unreachable, causing a VerifyError.
-        // For `this` (super constructor calls) we always load normally.
-        boolean callerIsThis = (caller instanceof Operand callerOp) && "this".equals(callerOp.getName());
-        if (callerIsThis) {
+        boolean callerIsThis = caller instanceof Operand callerOp && "this".equals(callerOp.getName());
+        boolean isConstructorCall = "<init>".equals(getMethodName(invokeSpecial));
+
+        if (callerIsThis || !isConstructorCall) {
             code.append(apply(caller));
         }
-        // else: uninitialized ref already on stack from prior dup — do not re-load
 
         for (var argument : invokeSpecial.getArguments()) {
             code.append(apply(argument));
