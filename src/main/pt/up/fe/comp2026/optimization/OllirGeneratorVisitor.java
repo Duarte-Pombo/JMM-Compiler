@@ -283,7 +283,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String currentArrayCode = ollirTypes.sanitizeId(array) + arrayTypeOllir;
         JmmType currentArrayJmmType = arrayType;
 
-        // Handle if the base array is a class field
         if (isFieldReference(array, node)) {
             currentArrayCode = ollirTypes.nextTemp() + arrayTypeOllir;
             code.append(currentArrayCode).append(SPACE).append(ASSIGN).append(arrayTypeOllir).append(SPACE)
@@ -296,7 +295,14 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             var idxOllir = exprVisitor.visit(node.getChild(i));
             code.append(idxOllir.getComputation());
 
-            currentArrayJmmType = ((pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) currentArrayJmmType).itemType();
+            var arrType = (pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) currentArrayJmmType;
+            int dims = arrType.dimension();
+            if (dims > 1) {
+                currentArrayJmmType = new pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType(arrType.itemType(), dims - 1);
+            } else {
+                currentArrayJmmType = arrType.itemType();
+            }
+
             String peeledTypeOllir = ollirTypes.toOllirType(currentArrayJmmType);
 
             String tempArray = ollirTypes.nextTemp() + peeledTypeOllir;

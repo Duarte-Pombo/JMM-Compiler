@@ -62,40 +62,47 @@ public class ArraySemantics extends AnalysisVisitor {
 
     private Void visitArrayAssignStmt(JmmNode arrayAssignStmt, SymbolTable table) {
         var types = TypeUtils.with(table);
-        var expectedType = TypeUtils.intType();
+        var expectedIndexType = TypeUtils.intType();
 
         String arrayName = arrayAssignStmt.get("var");
-
-        // 1. Declare and fetch arrayTypeOpt FIRST
         var arrayTypeOpt = types.getVariableType(arrayName, arrayAssignStmt);
 
-        // 2. Check if it exists and is an array
         if (arrayTypeOpt.isEmpty() || !arrayTypeOpt.get().isArray()) {
             addReport(newError(arrayAssignStmt, "Variable '" + arrayName + "' is not an array."));
             return null;
         }
 
-        var arrayType = arrayTypeOpt.get();
+        var currentType = arrayTypeOpt.get();
+        int numIndices = arrayAssignStmt.getNumChildren() - 1;
 
-        var expectedElementType = ((pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) arrayType).itemType();
-
-
-        int numChildren = arrayAssignStmt.getNumChildren();
-
-        for (int i = 0; i < numChildren - 1; i++) {
+        for (int i = 0; i < numIndices; i++) {
             var indexExpr = arrayAssignStmt.getChild(i);
             var indexType = types.getExprType(indexExpr);
 
-            if (!types.isAssignable(indexType, expectedType)) {
+            if (!types.isAssignable(indexType, expectedIndexType)) {
                 addReport(newError(indexExpr, "Array access index must be an integer. Got '" + indexType.print() + "'."));
+            }
+
+            if (currentType.isArray()) {
+                var arrType = (pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType) currentType;
+                int dims = arrType.dimension();
+                if (dims > 1) {
+                    currentType = new pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType(arrType.itemType(), dims - 1);
+                } else {
+                    currentType = arrType.itemType();
+                }
+            } else {
+                addReport(newError(arrayAssignStmt, "Trying to access more dimensions than the array has."));
+                return null;
             }
         }
 
-        var assignedValueExpr = arrayAssignStmt.getChild(numChildren - 1);
+        var expectedElementType = currentType;
+        var assignedValueExpr = arrayAssignStmt.getChild(numIndices);
         var assignedValueType = types.getExprType(assignedValueExpr);
 
         if (!types.isAssignable(assignedValueType, expectedElementType)) {
-            var message = "Cannot assign type '" + assignedValueType.print() + "' to array of base type 'int'.";
+            var message = "Cannot assign type '" + assignedValueType.print() + "' to '" + expectedElementType.print() + "'.";
             addReport(newError(assignedValueExpr, message));
         }
 
