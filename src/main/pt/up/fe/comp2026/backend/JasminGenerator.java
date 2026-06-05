@@ -419,23 +419,36 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         if (newInst.getReturnType() instanceof ArrayType arrayType) {
-            var elementType = arrayType.getElementType();
-            String typeKeyword;
+            var operands = newInst.getOperands();
 
-            if (elementType instanceof BuiltinType builtinType) {
-                typeKeyword = switch (builtinType.getKind()) {
-                    case INT32 -> "int";
-                    case BOOLEAN -> "boolean";
-                    default -> throw new RuntimeException("Unsupported array element type: " + builtinType.getKind());
-                };
-            } else {
-                throw new RuntimeException("Cannot create primitive array of non-builtin type.");
+            for (int i = 1; i < operands.size(); i++) {
+                code.append(apply(operands.get(i)));
             }
 
-            var sizeOperand = newInst.getOperands().get(1);
-            code.append(apply(sizeOperand));
-            code.append("newarray ").append(typeKeyword).append(NL);
+            int numSizesPushed = operands.size() - 1;
+            updateStack(-numSizesPushed);
 
+            int numDimensions = arrayType.getNumDimensions();
+
+            if (numDimensions == 1 && numSizesPushed == 1) {
+                var elementType = arrayType.getElementType();
+                if (elementType instanceof BuiltinType builtinType) {
+                    String typeKeyword = switch (builtinType.getKind()) {
+                        case INT32 -> "int";
+                        case BOOLEAN -> "boolean";
+                        default -> throw new RuntimeException("Unsupported array element type: " + builtinType.getKind());
+                    };
+                    code.append("newarray ").append(typeKeyword).append(NL);
+                } else {
+                    String className = types.getClassPath(types.getClassName(elementType));
+                    code.append("anewarray ").append(className).append(NL);
+                }
+            } else {
+                String descriptor = types.getTypeDescriptor(arrayType);
+                code.append("multianewarray ").append(descriptor).append(" ").append(numSizesPushed).append(NL);
+            }
+
+            updateStack(1);
             return code.toString();
 
         } else {
