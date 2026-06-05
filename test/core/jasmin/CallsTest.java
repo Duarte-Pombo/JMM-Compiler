@@ -1,12 +1,18 @@
 package core.jasmin;
 
 import org.junit.Test;
+import org.specs.comp.ollir.Ollir;
 import pt.up.fe.comp.jmm.jasmin.JasminResult;
+import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.ReportType;
 import pt.up.fe.comp.test.env.JmmTestEnv;
 import pt.up.fe.comp2026.analysis.JmmAnalysisImpl;
 import pt.up.fe.comp2026.backend.JasminBackendImpl;
 import pt.up.fe.comp2026.optimization.JmmOptimizationImpl;
+
+import java.util.List;
+import java.util.Map;
 
 public class CallsTest extends JmmTestEnv {
 
@@ -113,6 +119,29 @@ public class CallsTest extends JmmTestEnv {
         System.out.println(jasminCode);
         assertTrue("",jasminCode.contains("new test/Test"));
         assertTrue("",jasminCode.contains("invokevirtual test/Test/init(II)Ltest/Test;"));
+    }
+
+    @Test
+    public void constructorCallWithArguments() {
+        var jasminCode = toJasminCodeFromOllir("""
+                package test;
+                import java.util.Date;
+
+                Test extends Object {
+                    .construct "<init>"().V {
+                        invokespecial(this."java.lang.Object", "<init>").V;
+                    }
+
+                    .method public method(year.i32, month.i32, day.i32).Date {
+                        tmp0.Date :=.Date new(Date).Date;
+                        invokespecial(tmp0.Date, "<init>", year.i32, month.i32, day.i32).V;
+                        ret.Date tmp0.Date;
+                    }
+                }
+                """);
+
+        assertTrue("", jasminCode.contains("new java/util/Date"));
+        assertTrue("", jasminCode.contains("invokespecial java/util/Date/<init>(III)V"));
     }
 
     @Test
@@ -455,6 +484,20 @@ public class CallsTest extends JmmTestEnv {
         var ollirResult = optimization.toOllir(semantics);
         assertNotNull("Ollir code should not be null", ollirResult.getOllirCode());
 
+        var jasminBackend = new JasminBackendImpl();
+        JasminResult jasminResult = jasminBackend.toJasmin(ollirResult);
+        assertNotNull("Jasmin result should not be null", jasminResult);
+        return jasminResult.getJasminCode();
+    }
+
+    private String toJasminCodeFromOllir(String ollirCode) {
+        var parseResult = Ollir.parse(ollirCode);
+        assertFalse("OLLIR parse should not have errors", parseResult.hasErrors());
+
+        var classUnit = parseResult.classUnit();
+        classUnit.buildVarTables();
+
+        var ollirResult = new OllirResult(classUnit, List.<Report>of(), Map.of());
         var jasminBackend = new JasminBackendImpl();
         JasminResult jasminResult = jasminBackend.toJasmin(ollirResult);
         assertNotNull("Jasmin result should not be null", jasminResult);
