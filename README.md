@@ -6,10 +6,10 @@ For the last delivery (CP3), complete the following sections.
 
 The sum of the participations should be 100%, for a group of four elements with balanced participation, this corresponds to 25% participation each.
 
-[Student 1] - [percentage]% 
-[Student 2] - [percentage]% 
-[Student 3] - [percentage]% 
-[Student 4] - [percentage]% 
+André Pinho - 25% 
+Dinis Silva - 25% 
+Duarte Martins - 25% 
+Francisca Pacheco - 25% 
 
 ## Declaration of AI Tools Used
 
@@ -20,11 +20,10 @@ Finally, check the box regarding responsibility for the work.
 AI tools/services used in this work:
 
 [] No AI tools were used.
-[] The following tools were used:
- - [Name]: [specific use]
- - [Name]: [specific use]
+[x] The following tools were used:
+ - Gemini: Test generation, output debugging, edge case validation.
 
-[] All content has been reviewed, understood, validated, and we assume full responsibility for the work in this repository.
+[x] All content has been reviewed, understood, validated, and we assume full responsibility for the work in this repository.
 
 
 # Repository Structure
