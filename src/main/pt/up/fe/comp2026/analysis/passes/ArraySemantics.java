@@ -1,6 +1,8 @@
 package pt.up.fe.comp2026.analysis.passes;
 
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
+import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp2026.analysis.AnalysisVisitor;
 import pt.up.fe.comp2026.ast.TypeUtils;
 import pt.up.fe.comp2026.jmm.ast.JmmKind;
@@ -18,31 +20,50 @@ public class ArraySemantics extends AnalysisVisitor {
     private Void visitNewArrayByExtension(JmmNode newArrayByExtension, SymbolTable table) {
         var types = TypeUtils.with(table);
 
-        var expectedType = TypeUtils.intType();
-
         var arrayInitNodes = newArrayByExtension.getChildren(JmmKind.ARRAY_INIT);
         if (arrayInitNodes.isEmpty()) {
             return null;
         }
-        var arrayInit = arrayInitNodes.getFirst();
+
+        validateArrayInitializer(arrayInitNodes.getFirst(), types.getExprType(newArrayByExtension), types);
+        return null;
+    }
+
+    private void validateArrayInitializer(JmmNode arrayInit, JmmType expectedArrayType, TypeUtils types) {
+        if (!expectedArrayType.isArray()) {
+            addReport(newError(arrayInit, "Array initializer cannot be assigned to non-array type '" +
+                    expectedArrayType.print() + "'."));
+            return;
+        }
+
+        var expectedElementType = peelArrayDimension((JmmArrayType) expectedArrayType);
 
         for (JmmNode arrayElem : arrayInit.getChildren(JmmKind.ARRAY_ELEM)) {
-
             if (arrayElem.getChildren().isEmpty()) continue;
 
             JmmNode expr = arrayElem.getChild(0);
+            if (expr.isInstance(JmmKind.ARRAY_INIT)) {
+                validateArrayInitializer(expr, expectedElementType, types);
+                continue;
+            }
+
             var exprType = types.getExprType(expr);
 
-            if (!types.isAssignable(exprType, expectedType)) {
+            if (!types.isAssignable(exprType, expectedElementType)) {
 
-                var message = "Type mismatch in array initializer. Expected '" + expectedType.print() +
+                var message = "Type mismatch in array initializer. Expected '" + expectedElementType.print() +
                               "' but got '" + exprType.print() + "'.";
 
                 addReport(newError(expr, message));
             }
         }
+    }
 
-        return null;
+    private JmmType peelArrayDimension(JmmArrayType arrayType) {
+        int dims = arrayType.dimension();
+        return dims > 1
+                ? new JmmArrayType(arrayType.itemType(), dims - 1)
+                : arrayType.itemType();
     }
 
     private Void visitNewArray(JmmNode newArray, SymbolTable table) {

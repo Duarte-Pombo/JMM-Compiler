@@ -63,6 +63,25 @@ public class DeadCodeEliminationRegressionTest {
     }
 
     @Test
+    public void deadMultidimensionalArrayWriteShouldKeepValueSideEffect() {
+        var optimized = toOllirCode("""
+                package x;
+                class A {
+                    public int method() {
+                        int[][] local;
+                        int value;
+                        local = new int[2][2];
+                        value = 0;
+                        local[0][1] = ++value;
+                        return value;
+                    }
+                }""", true);
+
+        assertTrue("Removing a dead multidimensional array write must preserve side effects in the assigned value",
+                optimized.contains("+.i32 1.i32"));
+    }
+
+    @Test
     public void overwrittenStoreShouldBeRemovedEvenIfVariableIsReadLater() {
         var optimized = toOllirCode("""
                 package x;

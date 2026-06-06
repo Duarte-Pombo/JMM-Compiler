@@ -136,6 +136,21 @@ public class ArraySemanticsTest extends JmmTestEnv {
         assertTrue("Expected value type mismatch message", errors.get(0).getMessage().contains("Cannot assign"));
     }
 
+    @Test
+    public void nestedMultidimensionalInitializerShouldPass() {
+        var semantics = analyzeSnippet("""
+                package x;
+                class A {
+                    public int m() {
+                        int[][] a;
+                        a = new int[][] {{1, 2}, {3, 4}};
+                        return a[1][1];
+                    }
+                }""");
+
+        assertEquals("Expected 0 errors", 0, semantics.getReports(ReportType.ERROR).size());
+    }
+
     private JmmSemanticsResult analyzeSnippet(String code) {
         var parserResult = parseSnippet(code);
         var analysis = new JmmAnalysisImpl();

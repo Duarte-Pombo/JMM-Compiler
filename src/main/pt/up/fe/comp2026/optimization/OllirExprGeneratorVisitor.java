@@ -3,6 +3,7 @@ package pt.up.fe.comp2026.optimization;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.type.JmmType;
 import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmClassType;
+import pt.up.fe.comp.jmm.analysis.table.type.impls.JmmArrayType;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2026.ast.TypeUtils;
@@ -331,11 +332,16 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private OllirExprResult visitNewArrayByExtension(JmmNode node, Void unused) {
         var arrayInitNode = node.getChild(0);
+        return generateArrayInitializer(arrayInitNode, types.getExprType(node));
+    }
+
+    private OllirExprResult generateArrayInitializer(JmmNode arrayInitNode, JmmType arrayType) {
         var elements = arrayInitNode.getChildren();
         int size = elements.size();
 
-        var arrayTypeOllir = ollirTypes.toOllirType(types.getExprType(node));
-        var elementTypeOllir = arrayTypeOllir.replaceFirst("\\.array", "");
+        var arrayTypeOllir = ollirTypes.toOllirType(arrayType);
+        var elementType = peelArrayDimension((JmmArrayType) arrayType);
+        var elementTypeOllir = ollirTypes.toOllirType(elementType);
 
         String arrayTemp = ollirTypes.nextTemp() + arrayTypeOllir;
         StringBuilder computation = new StringBuilder();
@@ -345,7 +351,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
                 .append("new(array, ").append(sizeCode).append(")").append(arrayTypeOllir).append(END_STMT);
 
         for (int i = 0; i < size; i++) {
-            var elemOllir = visit(elements.get(i));
+            var elemNode = elements.get(i).getChild(0);
+            var elemOllir = elemNode.isInstance(ARRAY_INIT)
+                    ? generateArrayInitializer(elemNode, elementType)
+                    : visit(elemNode);
 
             computation.append(elemOllir.getComputation());
             computation.append(arrayTemp).append("[").append(i).append(".i32]").append(elementTypeOllir)
@@ -354,6 +363,13 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         }
 
         return new OllirExprResult(arrayTemp, computation);
+    }
+
+    private JmmType peelArrayDimension(JmmArrayType arrayType) {
+        int dims = arrayType.dimension();
+        return dims > 1
+                ? new JmmArrayType(arrayType.itemType(), dims - 1)
+                : arrayType.itemType();
     }
 
     private OllirExprResult visitArrayElem(JmmNode node, Void unused) {
