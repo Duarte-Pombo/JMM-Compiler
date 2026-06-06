@@ -439,8 +439,9 @@ public class JmmOptimizationImpl implements JmmOptimization {
             if (isLocalOrParameter(varName, context.method())) {
                 liveBefore.add(varName);
             }
-            liveBefore.addAll(readLocalVariables(arrayAssign.getChild(0), context.method()));
-            liveBefore.addAll(readLocalVariables(arrayAssign.getChild(1), context.method()));
+            for (var child : arrayAssign.getChildren()) {
+                liveBefore.addAll(readLocalVariables(child, context.method()));
+            }
             return new DceResult(liveBefore, false);
         }
 
@@ -448,8 +449,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 arrayAssign,
                 liveAfter,
                 context.method(),
-                arrayAssign.getChild(0),
-                arrayAssign.getChild(1)
+                arrayAssign.getChildren().toArray(JmmNode[]::new)
         );
     }
 
