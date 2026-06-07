@@ -11,7 +11,7 @@
 
 ## Self-Assessment
 
-- We think our project deserves a 19,5 out of 20.
+- We think our project deserves a 19,9 out of 20, given that we are uncertain about one test. Considering the even work distribution between all elements, this represents both the overall project self-assessment and each group member's.
 
 ## Implemented Extensions
 
