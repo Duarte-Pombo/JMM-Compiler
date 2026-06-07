@@ -1,15 +1,21 @@
 # Compiler Project
 
-For the last delivery (CP3), complete the following sections.
+## Group Elements and Participation
 
-## Participation
+| Name                  | Student ID  | Participation |
+| --------------------- | ----------- | ------------- |
+| Ana Francisca Pacheco | up202307150 | 25%           |
+| André Pinho           | up202307008 | 25%           |
+| Dinis Silva           | up202306207 | 25%           |
+| Duarte Martins        | up202304549 | 25%           |
 
-The sum of the participations should be 100%, for a group of four elements with balanced participation, this corresponds to 25% participation each.
+## Self-Assessment
 
-André Pinho - 25% 
-Dinis Silva - 25% 
-Duarte Martins - 25% 
-Francisca Pacheco - 25% 
+- We think our project deserves a 19,5 out of 20.
+
+## Implemented Extensions
+
+Overall, we implemented all the extensions. However, from the OLLIR generation phase onwards, we did not place special emphasis on handling potential errors and/or edge cases for the Local Static Methods and Multidimensional Arrays extensions, since, in theory, their implementation would no longer impact our final grade, as we were already able to achieve the maximum number of points through the remaining extensions within their respective categories.
 
 ## Declaration of AI Tools Used
 
@@ -21,7 +27,7 @@ AI tools/services used in this work:
 
 [] No AI tools were used.
 [x] The following tools were used:
- - Gemini: Test generation, output debugging, edge case validation.
+ - Gemini & Codex: Test generation, output debugging, edge case validation.
 
 [x] All content has been reviewed, understood, validated, and we assume full responsibility for the work in this repository.
 
