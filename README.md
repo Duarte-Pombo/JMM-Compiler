@@ -31,6 +31,13 @@ AI tools/services used in this work:
 
 [x] All content has been reviewed, understood, validated, and we assume full responsibility for the work in this repository.
 
+## Register Allocation Fix
+
+We acknowledge that there was a bug in the Register Allocation implementation regarding the handling of the maximum number of available registers when the `-r` flag is used.
+
+Since we were unable to fully determine the intended behavior from the specification and could not obtain clarification from the professor, we decided to keep the original implementation in the `main` branch and in the `cp3` tag.
+
+However, we also developed a fix that we believe provides the most reasonable behavior. This solution considers the maximum number of registers available as the value passed through the `-r` flag plus the number of temporary variables introduced for branch conditions. The implementation of this fix is available in the `fix/regAlloc` branch. The corresponding merge request was intentionally left open.
 
 # Repository Structure
 
